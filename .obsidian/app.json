@@ -1,0 +1,21 @@
+{
+  "alwaysUpdateLinks": true,
+  "newLinkFormat": "shortest",
+  "useMarkdownLinks": false,
+  "showLineNumber": true,
+  "strictLineBreaks": false,
+  "readableLineLength": true,
+  "defaultViewMode": "source",
+  "livePreview": true,
+  "nativeMenus": true,
+  "showFrontmatter": true,
+  "foldHeading": true,
+  "foldIndent": true,
+  "autoPairMarkdown": true,
+  "autoPairBrackets": true,
+  "spellcheck": false,
+  "showIndentGuide": true,
+  "tabSize": 2,
+  "focusNewTab": true,
+  "attachmentFolderPath": "raw/assets"
+}
