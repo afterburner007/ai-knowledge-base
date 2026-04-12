@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>关系图谱</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+  .graph-container { width: 100%; height: 100%; position: relative; }
+  .graph-container svg { width: 100%; height: 100%; display: block; }
+
+  .tooltip {
+    position: absolute;
+    background: #313244;
+    border: 1px solid #45475a;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    white-space: nowrap;
+    color: #cdd6f4;
+  }
+  .tooltip.visible { opacity: 1; }
+
+  .node-label {
+    fill: #a6adc8;
+    font-size: 10px;
+    font-weight: 400;
+    pointer-events: none;
+    text-anchor: middle;
+    dominant-baseline: central;
+    paint-order: stroke;
+    stroke: #1e1e2e;
+    stroke-width: 3px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .link-line {
+    stroke: #585b70;
+    stroke-opacity: 0.6;
+  }
+
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-size: 13px;
+    color: #585b70;
+  }
+
+  .controls {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    display: flex;
+    gap: 2px;
+    z-index: 10;
+  }
+  .zoom-btn {
+    background: rgba(49, 50, 68, 0.8);
+    border: 1px solid #45475a;
+    color: #a6adc8;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+  }
+  .zoom-btn:hover { background: #45475a; color: #cdd6f4; }
+</style>
+</head>
+<body>
+
+<div class="graph-container" id="graphContainer">
+  <div class="loading" id="loading">加载中...</div>
+  <div class="controls">
+    <button class="zoom-btn" id="zoomIn">+</button>
+    <button class="zoom-btn" id="zoomOut">-</button>
+    <button class="zoom-btn" id="zoomFit">&#8982;</button>
+  </div>
+  <div class="tooltip" id="tooltip"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script>
+(function() {
+  // Catppuccin Mocha-inspired colors for categories
+  var CATEGORY_COLORS = {
+    '3dgs': '#f38ba8',
+    'avm': '#fab387',
+    'calibration': '#f9e2af',
+    'perception': '#a6e3a1',
+    'tracking': '#89b4fa',
+    'fusion': '#cba6f7',
+    'platform': '#94e2d5',
+    'tools': '#f5c2e7',
+    'general': '#a6adc8'
+  };
+
+  var container = document.getElementById('graphContainer');
+  var tooltip = document.getElementById('tooltip');
+  var loadingEl = document.getElementById('loading');
+
+  var width, height;
+  var svg, g, zoom;
+  var link, node;
+  var graphData = { nodes: [], edges: [] };
+  var currentEdges = [];
+  var adjacencyMap = {};
+
+  // Node sizing: radius based on degree
+  var MIN_R = 5;
+  var MAX_R = 18;
+
+  function init() {
+    width = container.clientWidth;
+    height = container.clientHeight;
+
+    svg = d3.select('#graphContainer')
+      .append('svg')
+      .attr('width', width)
+      .attr('height', height);
+
+    g = svg.append('g');
+
+    zoom = d3.zoom()
+      .scaleExtent([0.1, 8])
+      .on('zoom', function(event) {
+        g.attr('transform', event.transform);
+      });
+
+    svg.call(zoom);
+
+    document.getElementById('zoomIn').onclick = function() {
+      svg.transition().duration(200).call(zoom.scaleBy, 1.5);
+    };
+    document.getElementById('zoomOut').onclick = function() {
+      svg.transition().duration(200).call(zoom.scaleBy, 0.65);
+    };
+    document.getElementById('zoomFit').onclick = fitView;
+  }
+
+  function fitView() {
+    if (!node || node.empty()) return;
+    // Compute bounding box from node positions (not group bbox which includes long links)
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    node.each(function(d) {
+      if (d.x < minX) minX = d.x;
+      if (d.y < minY) minY = d.y;
+      if (d.x > maxX) maxX = d.x;
+      if (d.y > maxY) maxY = d.y;
+    });
+    var pad = 80;
+    var bw = maxX - minX || 1;
+    var bh = maxY - minY || 1;
+    var scale = Math.min(
+      width / (bw + pad * 2),
+      height / (bh + pad * 2),
+      1.5
+    );
+    var tx = width / 2 - (minX + bw / 2) * scale;
+    var ty = height / 2 - (minY + bh / 2) * scale;
+    svg.transition().duration(500).call(
+      zoom.transform,
+      d3.zoomIdentity.translate(tx, ty).scale(scale)
+    );
+  }
+
+  function loadGraphData() {
+    fetch('/api/graph')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        graphData = data;
+        loadingEl.style.display = 'none';
+        renderGraph();
+      })
+      .catch(function(err) {
+        loadingEl.textContent = '加载失败: ' + err.message;
+      });
+  }
+
+  function buildAdjacency(nodes, edges) {
+    var adj = {};
+    nodes.forEach(function(n) { adj[n.key] = new Set(); });
+    edges.forEach(function(e) {
+      var sk = typeof e.source === 'object' ? e.source.key : e.source;
+      var tk = typeof e.target === 'object' ? e.target.key : e.target;
+      adj[sk].add(tk);
+      adj[tk].add(sk);
+    });
+    return adj;
+  }
+
+  function renderGraph() {
+    var nodes = graphData.nodes;
+    var edges = graphData.edges;
+    currentEdges = edges;
+
+    g.selectAll('*').remove();
+
+    if (nodes.length === 0) return;
+
+    var cx = width / 2;
+    var cy = height / 2;
+
+    // Calculate degrees for node sizing
+    var degrees = {};
+    nodes.forEach(function(n) { degrees[n.key] = 0; });
+    edges.forEach(function(e) {
+      degrees[e.source] = (degrees[e.source] || 0) + 1;
+      degrees[e.target] = (degrees[e.target] || 0) + 1;
+    });
+
+    var maxDeg = Math.max(1, d3.max(Object.values(degrees)));
+    nodes.forEach(function(n) {
+      var deg = degrees[n.key] || 0;
+      var t = deg / maxDeg;
+      n.r = MIN_R + (MAX_R - MIN_R) * Math.pow(t, 0.6);
+      n.degree = deg;
+    });
+
+    // Start all nodes near center with tiny random offset (like Obsidian)
+    nodes.forEach(function(n) {
+      n.x = cx + (Math.random() - 0.5) * 10;
+      n.y = cy + (Math.random() - 0.5) * 10;
+    });
+
+    // Resolve edges to node objects
+    var nodeMap = {};
+    nodes.forEach(function(n) { nodeMap[n.key] = n; });
+    var resolvedEdges = edges.map(function(e) {
+      return {
+        source: nodeMap[e.source] || { x: cx, y: cy },
+        target: nodeMap[e.target] || { x: cx, y: cy }
+      };
+    });
+
+    // === FORCE SIMULATION ===
+    // Scale forces based on graph size
+    var n = nodes.length;
+    var chargeStrength = -100;
+    var linkDist = 65;
+
+    var sim = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(resolvedEdges)
+        .id(function(d) { return d.key; })
+        .distance(linkDist)
+        .strength(0.9))
+      .force('charge', d3.forceManyBody().strength(chargeStrength))
+      .force('x', d3.forceX(cx).strength(0.15))
+      .force('y', d3.forceY(cy).strength(0.15))
+      .force('collision', d3.forceCollide().radius(function(d) { return d.r + 8; }))
+      .alphaDecay(0.015)
+      .velocityDecay(0.4);
+
+    // Run simulation to near-convergence
+    sim.alpha(1).restart();
+    for (var i = 0; i < 600; i++) sim.tick();
+    sim.stop();
+
+    // === RENDER LINKS ===
+    // Edge opacity based on combined degree (higher degree nodes → thicker connection feel)
+    link = g.append('g')
+      .selectAll('line')
+      .data(resolvedEdges)
+      .join('line')
+      .attr('class', 'link-line')
+      .attr('stroke-width', function(d) {
+        var sd = d.source.degree || 0;
+        var td = d.target.degree || 0;
+        return 0.5 + Math.min(1.5, (sd + td) * 0.15);
+      })
+      .attr('x1', function(d) { return d.source.x; })
+      .attr('y1', function(d) { return d.source.y; })
+      .attr('x2', function(d) { return d.target.x; })
+      .attr('y2', function(d) { return d.target.y; });
+
+    // === RENDER NODES ===
+    var nodeGroup = g.append('g')
+      .selectAll('g')
+      .data(nodes)
+      .join('g')
+      .attr('class', 'node-group')
+      .style('cursor', 'pointer')
+      .attr('transform', function(d) {
+        return 'translate(' + d.x + ',' + d.y + ')';
+      });
+
+    // Outer glow for high-degree nodes
+    nodeGroup.filter(function(d) { return d.degree > 3; })
+      .append('circle')
+      .attr('r', function(d) { return d.r + 3; })
+      .attr('fill', 'none')
+      .attr('stroke', function(d) { return CATEGORY_COLORS[d.category || 'general'] || '#6b7280'; })
+      .attr('stroke-opacity', 0.15)
+      .attr('stroke-width', 2);
+
+    nodeGroup.append('circle')
+      .attr('class', 'node-circle')
+      .attr('r', function(d) { return d.r; })
+      .attr('fill', function(d) {
+        return CATEGORY_COLORS[d.category || 'general'] || '#6b7280';
+      })
+      .attr('stroke', 'rgba(30,30,46,0.8)')
+      .attr('stroke-width', 1);
+
+    // === LABELS ===
+    // Labels: right of node, with stroke for readability
+    nodeGroup.append('text')
+      .attr('class', 'node-label')
+      .attr('x', function(d) { return d.r + 8; })
+      .attr('y', 1)
+      .text(function(d) { return d.id; })
+      .each(function(d) {
+        d.labelX = d.x + d.r + 8;
+        d.labelY = d.y + 1;
+      });
+
+    // Label collision resolution — push overlapping labels apart
+    resolveLabelCollisions(nodes, 100);
+
+    // Update label positions after collision resolution
+    nodeGroup.select('.node-label')
+      .attr('x', function(d) { return d.labelX - d.x; })
+      .attr('y', function(d) { return d.labelY - d.y; });
+
+    node = nodeGroup;
+
+    // Build adjacency for hover
+    adjacencyMap = buildAdjacency(nodes, resolvedEdges);
+
+    // === INTERACTIONS ===
+    nodeGroup
+      .on('mouseover', function(event, d) {
+        event.stopPropagation();
+        var color = CATEGORY_COLORS[d.category || 'general'] || '#6b7280';
+        var connected = adjacencyMap[d.key] || new Set();
+        connected.add(d.key);
+
+        // Dim unrelated nodes
+        nodeGroup.transition().duration(80)
+          .style('opacity', function(n) { return connected.has(n.key) ? 1 : 0.08; });
+
+        // Dim unrelated edges
+        link.transition().duration(80)
+          .style('opacity', function(l) {
+            return (l.source.key === d.key || l.target.key === d.key) ? 0.8 : 0.03;
+          })
+          .attr('stroke', function(l) {
+            return (l.source.key === d.key || l.target.key === d.key) ? color : '#45475a';
+          });
+
+        // Highlight hovered node
+        d3.select(this).select('.node-circle')
+          .attr('stroke', '#ffffff')
+          .attr('stroke-width', 2.5);
+        d3.select(this).select('.node-label')
+          .attr('fill', '#ffffff')
+          .attr('font-weight', '600');
+
+        tooltip.textContent = d.id + ' (' + d.category + ')';
+        tooltip.classList.add('visible');
+        moveTooltip(event);
+      })
+      .on('mousemove', function(event) {
+        event.stopPropagation();
+        moveTooltip(event);
+      })
+      .on('mouseout', function(event) {
+        event.stopPropagation();
+
+        nodeGroup.transition().duration(120).style('opacity', 1);
+        link.transition().duration(120)
+          .style('opacity', 0.5)
+          .attr('stroke', '#45475a');
+
+        nodeGroup.select('.node-circle')
+          .attr('stroke', 'rgba(30,30,46,0.8)')
+          .attr('stroke-width', 1);
+        nodeGroup.select('.node-label')
+          .attr('fill', '#a6adc8')
+          .attr('font-weight', '400');
+
+        tooltip.classList.remove('visible');
+      })
+      .on('click', function(event, d) {
+        event.stopPropagation();
+        window.location.href = '/#/wiki/' + d.key;
+      });
+
+    // Drag
+    nodeGroup.call(d3.drag()
+      .on('start', function(event, d) { event.sourceEvent.stopPropagation(); dragStarted(event, d, sim); })
+      .on('drag', function(event, d) { event.sourceEvent.stopPropagation(); dragged(event, d); })
+      .on('end', function(event, d) { dragEnded(event, d, sim); }));
+
+    // Restart simulation for live dragging
+    sim.alpha(0.1).restart();
+
+    // Fit view after layout
+    setTimeout(fitView, 100);
+  }
+
+  // Simple label collision resolver: push overlapping labels apart
+  function resolveLabelCollisions(nodes, iterations) {
+    var labelBounds = nodes.map(function(n) {
+      var w = estimateLabelWidth(n.id);
+      return { x: n.labelX - w / 2, y: n.labelY - 7, w: w, h: 14 };
+    });
+
+    for (var iter = 0; iter < iterations; iter++) {
+      var moved = false;
+      for (var i = 0; i < nodes.length; i++) {
+        for (var j = i + 1; j < nodes.length; j++) {
+          var a = labelBounds[i];
+          var b = labelBounds[j];
+          if (a.x < b.x + b.w && a.x + a.w > b.x &&
+              a.y < b.y + b.h && a.y + a.h > b.y) {
+            // Push apart: prioritize vertical separation
+            var overlapX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+            var overlapY = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+            if (overlapY < overlapX) {
+              if (a.y <= b.y) { a.y -= overlapY * 0.5 + 2; b.y += overlapY * 0.5 + 2; }
+              else { a.y += overlapY * 0.5 + 2; b.y -= overlapY * 0.5 + 2; }
+            } else {
+              if (a.x <= b.x) { a.x -= overlapX * 0.5 + 2; b.x += overlapX * 0.5 + 2; }
+              else { a.x += overlapX * 0.5 + 2; b.x -= overlapX * 0.5 + 2; }
+            }
+            moved = true;
+          }
+        }
+      }
+      if (!moved) break;
+    }
+
+    // Write back
+    for (var k = 0; k < nodes.length; k++) {
+      nodes[k].labelX = labelBounds[k].x + labelBounds[k].w / 2;
+      nodes[k].labelY = labelBounds[k].y + 7;
+    }
+  }
+
+  function estimateLabelWidth(text) {
+    return (text || '').length * 6 + 4;
+  }
+
+  function dragStarted(event, d, sim) {
+    if (!event.active) sim.alphaTarget(0.1).restart();
+    d.fx = d.x;
+    d.fy = d.y;
+  }
+
+  function dragged(event, d) {
+    d.fx = event.x;
+    d.fy = event.y;
+  }
+
+  function dragEnded(event, d, sim) {
+    if (!event.active) sim.alphaTarget(0);
+    d.fx = null;
+    d.fy = null;
+  }
+
+  function moveTooltip(event) {
+    var rect = container.getBoundingClientRect();
+    var x = event.clientX - rect.left + 14;
+    var y = event.clientY - rect.top - 8;
+    var tw = tooltip.offsetWidth;
+    var th = tooltip.offsetHeight;
+    if (x + tw > rect.width - 8) x = event.clientX - rect.left - tw - 14;
+    if (y + th > rect.height - 8) y = rect.height - th - 8;
+    if (y < 8) y = 8;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+
+  window.addEventListener('resize', function() {
+    width = container.clientWidth;
+    height = container.clientHeight;
+    svg.attr('width', width).attr('height', height);
+  });
+
+  init();
+  loadGraphData();
+})();
+</script>
+</body>
+</html>
