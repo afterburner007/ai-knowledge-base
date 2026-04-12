@@ -213,7 +213,7 @@
         for (var j = i + 1; j < nodes.length; j++) {
           var a = labelBounds[i];
           var b = labelBounds[j];
-          var pad = 2;
+          var pad = 4;
           if (a.x - pad < b.x + b.w + pad && a.x + a.w + pad > b.x - pad &&
               a.y - pad < b.y + b.h + pad && a.y + a.h + pad > b.y - pad) {
             var overlapX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
@@ -288,11 +288,11 @@
     var sim = d3.forceSimulation(nodes)
       .force('link', d3.forceLink(resolvedEdges)
         .id(function(d) { return d.key; })
-        .distance(70)
-        .strength(0.3))
-      .force('charge', d3.forceManyBody().strength(-120))
-      .force('center', d3.forceCenter(cx, cy).strength(0.08))
-      .force('collision', d3.forceCollide().radius(function(d) { return d.r + 6; }))
+        .distance(60)
+        .strength(0.25))
+      .force('charge', d3.forceManyBody().strength(-80))
+      .force('center', d3.forceCenter(cx, cy).strength(0.15))
+      .force('collision', d3.forceCollide().radius(function(d) { return d.r + 5; }))
       .alphaDecay(0.02)
       .velocityDecay(0.5);
 
