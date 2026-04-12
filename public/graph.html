@@ -150,10 +150,17 @@
     if (!node || node.empty()) return;
     var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     node.each(function(d) {
-      if (d.x < minX) minX = d.x;
-      if (d.y < minY) minY = d.y;
-      if (d.x > maxX) maxX = d.x;
-      if (d.y > maxY) maxY = d.y;
+      // Node bounds
+      if (d.x - d.r < minX) minX = d.x - d.r;
+      if (d.y - d.r < minY) minY = d.y - d.r;
+      if (d.x + d.r > maxX) maxX = d.x + d.r;
+      if (d.y + d.r > maxY) maxY = d.y + d.r;
+      // Label bounds
+      var lw = estimateLabelWidth(d.id);
+      if (d.labelX - lw / 2 < minX) minX = d.labelX - lw / 2;
+      if (d.labelX + lw / 2 > maxX) maxX = d.labelX + lw / 2;
+      if (d.labelY - 7 < minY) minY = d.labelY - 7;
+      if (d.labelY + 7 > maxY) maxY = d.labelY + 7;
     });
     var pad = 80;
     var bw = maxX - minX || 1;
