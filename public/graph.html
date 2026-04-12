@@ -38,13 +38,13 @@
     font-size: 10px;
     font-weight: 400;
     pointer-events: none;
-    text-anchor: middle;
-    dominant-baseline: hanging;
+    text-anchor: start;
+    dominant-baseline: central;
   }
 
   .link-line {
-    stroke: #5a5a5a;
-    stroke-opacity: 0.25;
+    stroke: #505050;
+    stroke-opacity: 0.35;
   }
 
   .loading {
@@ -95,16 +95,16 @@
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <script>
 (function() {
-  // Obsidian-like pastel colors for categories
+  // Obsidian-like colors
   var CATEGORY_COLORS = {
-    '3dgs': '#ff7b93',
-    'avm': '#ffab70',
-    'calibration': '#f2d479',
-    'perception': '#7ee8a0',
-    'tracking': '#7eb8ff',
-    'fusion': '#c4a0ff',
-    'platform': '#6ed6c8',
-    'tools': '#e89fd4',
+    '3dgs': '#f38ba8',
+    'avm': '#fab387',
+    'calibration': '#f9e2af',
+    'perception': '#a6e3a1',
+    'tracking': '#89b4fa',
+    'fusion': '#cba6f7',
+    'platform': '#94e2d5',
+    'tools': '#f5c2e7',
     'general': '#999'
   };
 
@@ -155,7 +155,7 @@
       if (d.x > maxX) maxX = d.x;
       if (d.y > maxY) maxY = d.y;
     });
-    var pad = 100;
+    var pad = 80;
     var bw = maxX - minX || 1;
     var bh = maxY - minY || 1;
     var scale = Math.min(
@@ -200,10 +200,11 @@
     return (text || '').length * 6.2 + 4;
   }
 
+  // Resolve label overlaps: push labels apart vertically first, then horizontally
   function resolveLabelCollisions(nodes, iterations) {
     var labelBounds = nodes.map(function(n) {
       var w = estimateLabelWidth(n.id);
-      return { x: n.labelX - w / 2, y: n.labelY - 2, w: w, h: 14 };
+      return { x: n.labelX, y: n.labelY, w: w, h: 13 };
     });
 
     for (var iter = 0; iter < iterations; iter++) {
@@ -212,12 +213,13 @@
         for (var j = i + 1; j < nodes.length; j++) {
           var a = labelBounds[i];
           var b = labelBounds[j];
-          var pad = 3;
+          var pad = 2;
           if (a.x - pad < b.x + b.w + pad && a.x + a.w + pad > b.x - pad &&
               a.y - pad < b.y + b.h + pad && a.y + a.h + pad > b.y - pad) {
             var overlapX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
             var overlapY = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
-            if (overlapY < overlapX) {
+            // Prioritize vertical separation (labels are wider than tall)
+            if (overlapY < overlapX * 0.6) {
               var dy = (a.y <= b.y) ? -1 : 1;
               a.y += dy * (overlapY * 0.5 + 2);
               b.y -= dy * (overlapY * 0.5 + 2);
@@ -234,8 +236,8 @@
     }
 
     for (var k = 0; k < nodes.length; k++) {
-      nodes[k].labelX = labelBounds[k].x + labelBounds[k].w / 2;
-      nodes[k].labelY = labelBounds[k].y + 2;
+      nodes[k].labelX = labelBounds[k].x;
+      nodes[k].labelY = labelBounds[k].y;
     }
   }
 
@@ -250,7 +252,7 @@
     var cx = width / 2;
     var cy = height / 2;
 
-    // Calculate degrees
+    // Calculate degrees for node sizing
     var degrees = {};
     nodes.forEach(function(n) { degrees[n.key] = 0; });
     edges.forEach(function(e) {
@@ -258,18 +260,18 @@
       degrees[e.target] = (degrees[e.target] || 0) + 1;
     });
 
-    // Node radius: 4 for leaf nodes, up to 10 for hubs
+    // Node radius: 4 base, up to 8 for highly connected
     var maxDeg = Math.max(1, d3.max(Object.values(degrees)));
     nodes.forEach(function(n) {
       var deg = degrees[n.key] || 0;
-      n.r = 4 + 6 * Math.pow(deg / maxDeg, 0.7);
+      n.r = 4 + 4 * Math.pow(deg / maxDeg, 0.8);
       n.degree = deg;
     });
 
-    // Start near center with small random spread
+    // Start all near center
     nodes.forEach(function(n) {
-      n.x = cx + (Math.random() - 0.5) * 40;
-      n.y = cy + (Math.random() - 0.5) * 40;
+      n.x = cx + (Math.random() - 0.5) * 30;
+      n.y = cy + (Math.random() - 0.5) * 30;
     });
 
     // Resolve edges
@@ -283,29 +285,28 @@
     });
 
     // === FORCE SIMULATION ===
-    // Obsidian-style: strong repulsion + moderate link strength + centering
     var sim = d3.forceSimulation(nodes)
       .force('link', d3.forceLink(resolvedEdges)
         .id(function(d) { return d.key; })
-        .distance(90)
-        .strength(0.4))
-      .force('charge', d3.forceManyBody().strength(-160))
-      .force('center', d3.forceCenter(cx, cy).strength(0.06))
-      .force('collision', d3.forceCollide().radius(function(d) { return d.r + 10; }))
+        .distance(70)
+        .strength(0.3))
+      .force('charge', d3.forceManyBody().strength(-120))
+      .force('center', d3.forceCenter(cx, cy).strength(0.08))
+      .force('collision', d3.forceCollide().radius(function(d) { return d.r + 6; }))
       .alphaDecay(0.02)
       .velocityDecay(0.5);
 
-    // Pre-simulate to convergence
+    // Pre-simulate
     sim.alpha(1).restart();
     for (var i = 0; i < 500; i++) sim.tick();
     sim.stop();
 
-    // === LABELS: place below node, then resolve collisions ===
+    // === LABELS: right of node ===
     nodes.forEach(function(n) {
-      n.labelX = n.x;
-      n.labelY = n.y + n.r + 14;
+      n.labelX = n.x + n.r + 6;
+      n.labelY = n.y;
     });
-    resolveLabelCollisions(nodes, 120);
+    resolveLabelCollisions(nodes, 150);
 
     // === RENDER LINKS ===
     link = g.append('g')
@@ -313,7 +314,7 @@
       .data(resolvedEdges)
       .join('line')
       .attr('class', 'link-line')
-      .attr('stroke-width', 0.8)
+      .attr('stroke-width', 0.7)
       .attr('x1', function(d) { return d.source.x; })
       .attr('y1', function(d) { return d.source.y; })
       .attr('x2', function(d) { return d.target.x; })
@@ -337,7 +338,7 @@
         return CATEGORY_COLORS[d.category || 'general'] || '#999';
       });
 
-    // Labels at resolved positions
+    // Labels at resolved positions (text-anchor: start)
     nodeGroup.append('text')
       .attr('class', 'node-label')
       .attr('x', function(d) { return d.labelX - d.x; })
@@ -346,7 +347,7 @@
 
     node = nodeGroup;
 
-    // Build adjacency
+    // Build adjacency for hover
     adjacencyMap = buildAdjacency(nodes, resolvedEdges);
 
     // === INTERACTIONS ===
@@ -364,7 +365,7 @@
             return (l.source.key === d.key || l.target.key === d.key) ? 0.6 : 0.02;
           })
           .attr('stroke', function(l) {
-            return (l.source.key === d.key || l.target.key === d.key) ? color : '#5a5a5a';
+            return (l.source.key === d.key || l.target.key === d.key) ? color : '#505050';
           });
 
         d3.select(this).select('.node-circle')
@@ -387,8 +388,8 @@
 
         nodeGroup.transition().duration(100).style('opacity', 1);
         link.transition().duration(100)
-          .style('opacity', 0.25)
-          .attr('stroke', '#5a5a5a');
+          .style('opacity', 0.35)
+          .attr('stroke', '#505050');
 
         nodeGroup.select('.node-circle')
           .transition().duration(100)
@@ -404,7 +405,7 @@
         window.location.href = '/#/wiki/' + d.key;
       });
 
-    // Drag with live simulation
+    // Drag
     nodeGroup.call(d3.drag()
       .on('start', function(event, d) {
         event.sourceEvent.stopPropagation();
@@ -420,7 +421,6 @@
         d.fx = null; d.fy = null;
       }));
 
-    // Fit view
     setTimeout(fitView, 50);
   }
 
