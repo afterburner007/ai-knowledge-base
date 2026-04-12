@@ -18,3 +18,10 @@ Thumbs.db
 # Obsidian
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
+
+# Playwright MCP
+.playwright-mcp/
+
+# Debug screenshots (root level only)
+/*.png
+debug-snapshot.md

@@ -1,0 +1,602 @@
+/* Docsify Obsidian-like Light Theme for AI Knowledge Base */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f6f7f8;
+  --bg-tertiary: #ececec;
+  --bg-hover: #e8eaed;
+  --bg-active: #e4e6eb;
+  --bg-code: #f0f2f5;
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --text-tertiary: #6b7280;
+  --text-link: #5b6abf;
+  --text-link-hover: #3d4fa0;
+  --border-color: #e2e4e8;
+  --border-light: #f0f0f0;
+  --tag-bg: #ede9fe;
+  --tag-text: #6d28d9;
+  --tag-bg-hover: #ddd6fe;
+  --accent: #5b6abf;
+  --accent-light: rgba(91, 106, 191, 0.08);
+  --sidebar-width: 260px;
+  --content-max-width: 820px;
+  --font-sans: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
+}
+
+/* ===== Reset & Body ===== */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 15px !important;
+  line-height: 1.75 !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+/* Remove scanlines and grid overlay */
+body::before,
+body::after {
+  display: none !important;
+}
+
+/* ===== Layout: sidebar + content side by side ===== */
+
+.sidebar {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: var(--sidebar-width) !important;
+  height: 100vh !important;
+  background: var(--bg-secondary) !important;
+  color: var(--text-secondary) !important;
+  border-right: 1px solid var(--border-color) !important;
+  padding-top: 0 !important;
+  font-size: 13.5px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  z-index: 10 !important;
+}
+
+.content {
+  position: relative !important;
+  top: 0 !important;
+  left: var(--sidebar-width) !important;
+  width: calc(100vw - var(--sidebar-width)) !important;
+  min-height: 100vh !important;
+  background: var(--bg-primary) !important;
+  overflow-y: auto !important;
+}
+
+/* ===== Sidebar inner ===== */
+
+/* App name */
+.app-name {
+  padding: 1rem 1rem 0.5rem !important;
+}
+
+.app-name-link {
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+  font-size: 0.95rem !important;
+  text-decoration: none !important;
+  text-shadow: none !important;
+  font-family: var(--font-sans) !important;
+}
+
+/* Search */
+.search {
+  padding: 0.5rem 0.8rem !important;
+  margin: 0 0 0.5rem 0 !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.search input {
+  background: var(--bg-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  caret-color: var(--accent) !important;
+  border-radius: 6px !important;
+  padding: 0.35rem 0.6rem !important;
+}
+
+.search input:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px var(--accent-light) !important;
+  outline: none !important;
+}
+
+.search input::placeholder {
+  color: var(--text-tertiary) !important;
+}
+
+.search .results {
+  color: var(--text-tertiary) !important;
+  font-family: var(--font-sans) !important;
+}
+
+.search .search-keyword {
+  color: var(--accent) !important;
+  font-style: normal !important;
+  background: var(--accent-light) !important;
+  border-radius: 2px !important;
+  padding: 0 2px !important;
+}
+
+.search a {
+  color: var(--text-primary) !important;
+}
+
+.search a:hover {
+  color: var(--accent) !important;
+}
+
+/* Sidebar nav tree */
+.sidebar-nav {
+  padding: 0 0.5rem !important;
+}
+
+.sidebar-nav ul {
+  list-style: none !important;
+  padding-left: 0 !important;
+}
+
+/* Category headers (strong elements) */
+.sidebar-nav li > strong {
+  color: var(--text-tertiary) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  border-bottom: none !important;
+  padding: 0.8rem 0.5rem 0.3rem !important;
+  margin: 0 !important;
+  display: block !important;
+  text-shadow: none !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  transition: color 0.15s !important;
+}
+
+.sidebar-nav li > strong:hover {
+  color: var(--text-primary) !important;
+}
+
+/* Category group lists */
+.sidebar-nav ul ul {
+  padding-left: 0.6rem !important;
+  transition: opacity 0.15s !important;
+}
+
+/* Page links in sidebar */
+.sidebar-nav a {
+  color: var(--text-secondary) !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  padding: 0.2rem 0.4rem !important;
+  border-radius: 4px !important;
+  text-decoration: none !important;
+  transition: all 0.1s ease !important;
+  display: block !important;
+}
+
+.sidebar-nav a:hover {
+  color: var(--text-primary) !important;
+  background: var(--bg-hover) !important;
+  text-decoration: none !important;
+}
+
+/* Keep active page's sub-TOC always expanded */
+.sidebar-nav li.active > ul {
+  display: block !important;
+}
+
+.sidebar-nav li.active > a {
+  color: var(--text-primary) !important;
+  background: var(--bg-active) !important;
+  font-weight: 500 !important;
+  border-color: transparent !important;
+}
+
+.sidebar-toggle {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.sidebar-toggle span {
+  background: var(--text-tertiary) !important;
+}
+
+/* ===== Breadcrumb (top bar) ===== */
+
+.app-nav {
+  color: var(--text-tertiary) !important;
+  font-size: 12px !important;
+}
+
+/* ===== Content Area ===== */
+
+.markdown-section {
+  max-width: var(--content-max-width) !important;
+  padding: 1.5rem 2.5rem 3rem !important;
+}
+
+/* Breadcrumb path */
+.page-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 1rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.page-breadcrumb a {
+  color: var(--text-tertiary);
+  text-decoration: none;
+}
+
+.page-breadcrumb a:hover {
+  color: var(--accent);
+}
+
+.page-breadcrumb .sep {
+  color: var(--border-color);
+}
+
+/* ===== Frontmatter Panel ===== */
+
+.frontmatter-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 2rem;
+  font-size: 13px;
+}
+
+.frontmatter-panel .fm-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  margin-bottom: 0.6rem;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.frontmatter-panel .fm-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.frontmatter-panel .fm-label {
+  color: var(--text-tertiary);
+  min-width: 52px;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 12.5px;
+}
+
+.frontmatter-panel .fm-value {
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.frontmatter-panel .fm-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.frontmatter-panel .fm-tag {
+  display: inline-block;
+  background: var(--tag-bg);
+  color: var(--tag-text);
+  padding: 0.1rem 0.5rem;
+  border-radius: 10px;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+
+.frontmatter-panel .fm-tag:hover {
+  background: var(--tag-bg-hover);
+}
+
+.frontmatter-panel .fm-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  padding: 0.1rem 0.5rem;
+  border-radius: 10px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+}
+
+/* ===== Typography ===== */
+
+.markdown-section h1 {
+  font-family: var(--font-sans) !important;
+  color: var(--text-primary) !important;
+  font-size: 1.7rem !important;
+  font-weight: 700 !important;
+  margin: 0 0 0.5rem !important;
+  border-bottom: none !important;
+  padding-bottom: 0 !important;
+  text-shadow: none !important;
+}
+
+.markdown-section h2 {
+  font-family: var(--font-sans) !important;
+  color: var(--text-primary) !important;
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  margin: 2rem 0 0.8rem !important;
+  padding-bottom: 0 !important;
+  border-bottom: none !important;
+  text-shadow: none !important;
+}
+
+.markdown-section h3 {
+  color: var(--text-primary) !important;
+  font-size: 1.05rem !important;
+  font-weight: 600 !important;
+  margin: 1.5rem 0 0.6rem !important;
+  border-left: none !important;
+  padding-left: 0 !important;
+}
+
+.markdown-section h4 {
+  color: var(--text-primary) !important;
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  margin: 1.2rem 0 0.5rem !important;
+}
+
+.markdown-section h1 > a,
+.markdown-section h2 > a,
+.markdown-section h3 > a,
+.markdown-section h4 > a {
+  color: var(--text-primary) !important;
+  border-bottom: none !important;
+}
+
+.markdown-section h1 > a:hover,
+.markdown-section h2 > a:hover,
+.markdown-section h3 > a:hover,
+.markdown-section h4 > a:hover {
+  color: var(--text-primary) !important;
+  border-bottom: none !important;
+  text-shadow: none !important;
+}
+
+.markdown-section p {
+  color: var(--text-primary) !important;
+  margin: 0.6rem 0 !important;
+}
+
+.markdown-section a {
+  color: var(--text-link) !important;
+  text-decoration: none !important;
+  border-bottom: 1px solid transparent !important;
+  transition: all 0.15s !important;
+}
+
+.markdown-section a:hover {
+  color: var(--text-link-hover) !important;
+  border-bottom-color: var(--text-link-hover) !important;
+  text-shadow: none !important;
+}
+
+/* ===== Code ===== */
+
+.markdown-section code {
+  background: var(--bg-code) !important;
+  border: 1px solid var(--border-light) !important;
+  color: #d6336c !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.85em !important;
+  padding: 0.1rem 0.35rem !important;
+  border-radius: 4px !important;
+}
+
+.markdown-section pre {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  border-left: 3px solid var(--accent) !important;
+  padding: 1rem 1.2rem !important;
+  margin: 1rem 0 !important;
+  border-radius: 6px !important;
+  position: relative !important;
+  overflow-x: auto !important;
+}
+
+.markdown-section pre > code {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  font-size: 0.85rem !important;
+  line-height: 1.6 !important;
+  color: var(--text-primary) !important;
+  text-shadow: none !important;
+}
+
+/* Language label on code blocks */
+.markdown-section pre::before {
+  content: attr(data-lang, "code");
+  position: absolute;
+  top: -8px;
+  right: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.6rem;
+  padding: 0 0.4rem;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 3px;
+}
+
+/* ===== Tables ===== */
+
+.markdown-section table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 1rem 0 !important;
+  font-size: 0.88rem !important;
+}
+
+.markdown-section th,
+.markdown-section td {
+  padding: 0.5rem 0.8rem !important;
+  border: 1px solid var(--border-color) !important;
+  text-align: left !important;
+}
+
+.markdown-section th {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+}
+
+.markdown-section tr:nth-child(2n) {
+  background: transparent !important;
+}
+
+/* ===== Lists ===== */
+
+.markdown-section ul,
+.markdown-section ol {
+  margin: 0.5rem 0 !important;
+  padding-left: 1.5rem !important;
+}
+
+.markdown-section li {
+  margin: 0.2rem 0 !important;
+  color: var(--text-primary) !important;
+}
+
+.markdown-section li::marker {
+  color: var(--text-tertiary) !important;
+}
+
+/* ===== Blockquotes ===== */
+
+.markdown-section blockquote {
+  border-left: 3px solid var(--accent) !important;
+  padding: 0.6rem 1rem !important;
+  margin: 1rem 0 !important;
+  color: var(--text-secondary) !important;
+  background: var(--accent-light) !important;
+  border-radius: 0 4px 4px 0 !important;
+}
+
+/* ===== Horizontal Rules ===== */
+
+.markdown-section hr {
+  border: none !important;
+  height: 1px !important;
+  background: var(--border-color) !important;
+  margin: 2rem 0 !important;
+}
+
+/* ===== Images ===== */
+
+.markdown-section img {
+  max-width: 100% !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 6px !important;
+  margin: 1rem 0 !important;
+}
+
+/* ===== KaTeX ===== */
+
+.katex-display {
+  margin: 1rem 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 0.5rem 0 !important;
+}
+
+.katex {
+  color: var(--text-primary) !important;
+  font-size: 1em !important;
+}
+
+/* Prevent KaTeX from intercepting clicks */
+.katex-html,
+.katex .katex-html,
+.katex [aria-hidden="true"] {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+/* ===== Frontmatter metadata (hidden from markdown content) ===== */
+.frontmatter-block {
+  display: none !important;
+}
+
+/* ===== Search highlight in content ===== */
+.search-keyword {
+  background: #fef08a !important;
+  color: var(--text-primary) !important;
+  border-radius: 2px !important;
+  padding: 0 2px !important;
+}
+
+/* ===== Responsive ===== */
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: var(--sidebar-width) !important;
+  }
+
+  .content {
+    left: 0 !important;
+  }
+
+  .markdown-section {
+    padding: 1rem !important;
+  }
+
+  .markdown-section h1 {
+    font-size: 1.4rem !important;
+  }
+
+  .markdown-section h2 {
+    font-size: 1.1rem !important;
+  }
+
+  .markdown-section table {
+    font-size: 0.78rem !important;
+  }
+
+  .markdown-section pre {
+    padding: 0.8rem !important;
+    font-size: 0.8rem !important;
+  }
+}

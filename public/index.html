@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 知识库</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="docsify-theme.css">
+</head>
+<body>
+<div id="app">加载中...</div>
+
+<script>
+// Wiki path mapping — loaded from server
+window.WIKI_PATH_MAP = {};
+
+// Resolve a wiki link key (filename stem or title) to a wiki path
+function resolveWikiKey(key) {
+  if (window.WIKI_PATH_MAP[key]) {
+    return '/wiki/' + window.WIKI_PATH_MAP[key];
+  }
+  for (var k in window.WIKI_PATH_MAP) {
+    var lowerKey = key.toLowerCase();
+    var lowerK = k.toLowerCase();
+    if (lowerKey.indexOf(lowerK) !== -1 || lowerK.indexOf(lowerKey) !== -1) {
+      return '/wiki/' + window.WIKI_PATH_MAP[k];
+    }
+  }
+  return null;
+}
+
+// Load path map
+fetch('/api/wiki-path-map')
+  .then(function(r) { return r.json(); })
+  .then(function(map) { window.WIKI_PATH_MAP = map; })
+  .catch(function() { console.warn('Failed to load wiki path map'); });
+
+// Extract and render YAML frontmatter as a panel
+function renderFrontmatter(fm, relPath) {
+  var rows = [];
+
+  // Title
+  if (fm.title) {
+    rows.push('<div class="fm-row"><span class="fm-label">title</span><span class="fm-value">' + fm.title + '</span></div>');
+  }
+
+  // Category
+  if (fm.category) {
+    rows.push('<div class="fm-row"><span class="fm-label">category</span><span class="fm-value">' + fm.category + '</span></div>');
+  }
+
+  // Tags
+  if (fm.tags) {
+    var tags = fm.tags.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+    if (tags.length > 0) {
+      var tagsHtml = '<div class="fm-tags">';
+      tags.forEach(function(tag) {
+        tagsHtml += '<span class="fm-tag">' + tag + '</span>';
+      });
+      tagsHtml += '</div>';
+      rows.push('<div class="fm-row"><span class="fm-label">tags</span><span class="fm-value">' + tagsHtml + '</span></div>');
+    }
+  }
+
+  // Created
+  if (fm.created) {
+    rows.push('<div class="fm-row"><span class="fm-label">created</span><span class="fm-value">' + fm.created + '</span></div>');
+  }
+
+  // Updated
+  if (fm.updated) {
+    rows.push('<div class="fm-row"><span class="fm-label">updated</span><span class="fm-value">' + fm.updated + '</span></div>');
+  }
+
+  // Sources
+  if (fm.sources) {
+    var sources = fm.sources.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+    if (sources.length > 0) {
+      var sourcesHtml = '';
+      sources.forEach(function(src) {
+        sourcesHtml += '<span class="fm-source">' + src + '</span>';
+      });
+      rows.push('<div class="fm-row"><span class="fm-label">sources</span><span class="fm-value">' + sourcesHtml + '</span></div>');
+    }
+  }
+
+  if (rows.length === 0) return '';
+
+  var html = '<div class="frontmatter-panel">';
+  rows.forEach(function(r) { html += r; });
+  html += '</div>';
+  return html;
+}
+
+// Render breadcrumb from current wiki path
+function renderBreadcrumb(path) {
+  if (!path || path === '/') return '';
+  var parts = path.replace(/^wiki\//, '').split('/');
+  var html = '<div class="page-breadcrumb"><a href="#/">wiki</a>';
+  var acc = '';
+  for (var i = 0; i < parts.length; i++) {
+    acc += (acc ? '/' : '') + parts[i];
+    html += '<span class="sep">/</span>';
+    if (i < parts.length - 1) {
+      html += '<span>' + parts[i] + '</span>';
+    } else {
+      html += '<span>' + parts[i].replace(/\.md$/, '') + '</span>';
+    }
+  }
+  html += '</div>';
+  return html;
+}
+
+// Simple YAML frontmatter parser
+function parseFrontmatter(text) {
+  var m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)/);
+  if (!m) return { data: {}, body: text };
+  var data = {};
+  var lines = m[1].split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var colonIdx = lines[i].indexOf(':');
+    if (colonIdx > 0) {
+      var key = lines[i].substring(0, colonIdx).trim();
+      var val = lines[i].substring(colonIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+      data[key] = val;
+    }
+  }
+  return { data: data, body: m[2] };
+}
+
+window.$docsify = {
+  name: 'AI 知识库',
+  repo: '',
+  loadSidebar: '_sidebar.md',
+  alias: {
+    '/.*/_sidebar.md': '/_sidebar.md',
+  },
+  subMaxLevel: 3,
+  auto2top: true,
+  search: {
+    maxAge: 300000,
+    paths: 'auto',
+    placeholder: '搜索...',
+    noData: '未找到相关结果',
+    depth: 3,
+  },
+    plugins: [
+    function(hook) {
+      var US_PH = '\u0001US\u0001';
+      var currentFmHtml = '';
+
+      // Before markdown: extract frontmatter, protect underscores, convert wikilinks
+      hook.beforeEach(function(content) {
+        // Parse frontmatter
+        var parsed = parseFrontmatter(content);
+        var fm = parsed.data;
+        var body = parsed.body;
+
+        // Render frontmatter panel HTML (injected after render)
+        var route = location.hash.replace(/^#\//, '') || '';
+        currentFmHtml = renderFrontmatter(fm, route);
+
+        // Protect underscores inside math formulas
+        body = body.replace(/\$\$([\s\S]*?)\$\$/g, function(m, inner) {
+          return '$$' + inner.replace(/_/g, US_PH) + '$$';
+        });
+        body = body.replace(/\$([^\$\n]+?)\$/g, function(m, inner) {
+          return '$' + inner.replace(/_/g, US_PH) + '$';
+        });
+
+        // [[name|display]] wikilinks
+        body = body.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, function(match, key, display) {
+          var url = resolveWikiKey(key.trim());
+          return url ? '[' + display + '](' + url + ')' : display;
+        });
+        // [[name]] wikilinks
+        body = body.replace(/\[\[([^\]|]+)\]\]/g, function(match, key) {
+          var url = resolveWikiKey(key.trim());
+          return url ? '[' + key + '](' + url + ')' : key;
+        });
+        // [text](./relative.md) links
+        body = body.replace(/\[([^\]]+)\]\((\.\/|\.\.\/)[^\)]+\.md\)/g, function(match, text, href) {
+          var basename = href.replace(/.*[\/\\]/, '').replace(/\.md$/, '');
+          var url = resolveWikiKey(basename);
+          return url ? '[' + text + '](' + url + ')' : match;
+        });
+
+        return body;
+      });
+
+      // After markdown: restore underscores
+      hook.afterEach(function(html) {
+        html = html.replace(new RegExp(US_PH, 'g'), '_');
+        return html;
+      });
+
+      // After render: inject frontmatter + breadcrumb, fix links, render KaTeX
+      hook.doneEach(function() {
+        var section = document.querySelector('.markdown-section');
+        if (!section) return;
+
+        // Fix sub-TOC links: remove page path from href and intercept clicks to prevent Docsify re-routing
+        var subTocLinks = document.querySelectorAll('.sidebar-nav .app-sub-sidebar a');
+        for (var k = 0; k < subTocLinks.length; k++) {
+          var sl = subTocLinks[k];
+          if (sl.dataset.subTocFixed) continue;
+          sl.dataset.subTocFixed = '1';
+          var sHref = sl.getAttribute('href') || '';
+          // Decode href to handle both literal and encoded ?/& characters
+          var decodedHref = decodeURIComponent(sHref);
+          var sIdMatch = decodedHref.match(/[?&]id=([^&]*)/);
+          if (sIdMatch) {
+            var headingId = sIdMatch[1];
+            // Replace href with a scroll-based handler instead of a Docsify route
+            sl.setAttribute('href', '#' + headingId);
+            sl.addEventListener('click', function(ev) {
+              ev.preventDefault();
+              ev.stopPropagation();
+              ev.stopImmediatePropagation();
+              var targetId = decodeURIComponent(this.getAttribute('href').substring(1));
+              var target = document.getElementById(targetId);
+              if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+              return false;
+            }, true);
+          }
+        }
+
+        // Inject breadcrumb and frontmatter at top (skip for home page)
+        var route = location.hash.replace(/^#\//, '') || '';
+        if (route === '' || route === '/' || route === 'README.md') return;
+        var breadcrumbHtml = renderBreadcrumb(route);
+        var existing = section.querySelector('.frontmatter-panel');
+        if (!existing) {
+          var wrapper = document.createElement('div');
+          wrapper.innerHTML = breadcrumbHtml + currentFmHtml;
+          section.insertBefore(wrapper, section.firstChild);
+        }
+
+        // Keep the active page's sub-TOC expanded after navigation
+        // Run immediately and again after a delay to handle docsify re-renders
+        function keepActiveTOCExpanded() {
+          var activePage = document.querySelector('.sidebar-nav li.active');
+          if (activePage) {
+            var subList = activePage.querySelector(':scope > ul');
+            if (subList) {
+              subList.style.display = 'block';
+              subList.style.opacity = '1';
+            }
+          }
+        }
+        keepActiveTOCExpanded();
+        setTimeout(keepActiveTOCExpanded, 100);
+        setTimeout(keepActiveTOCExpanded, 300);
+
+        // Fix relative markdown links
+        var links = document.querySelectorAll('.markdown-section a[href]');
+        for (var i = 0; i < links.length; i++) {
+          var link = links[i];
+          var href = link.getAttribute('href') || '';
+          var cleanHref = href.replace(/^#\//, '').replace(/\.md$/, '');
+          if (cleanHref.startsWith('./') || cleanHref.startsWith('../')) {
+            var stripped = cleanHref.replace(/^\.\//, '').replace(/^\.\.\//, '');
+            var basename = stripped.replace(/.*\//, '').replace(/\.md$/, '');
+            var url = resolveWikiKey(basename);
+            if (url) {
+              link.setAttribute('href', '#' + url);
+            }
+          }
+        }
+
+        // Render KaTeX
+        var existingKatex = section.querySelectorAll('.katex');
+        for (var j = existingKatex.length - 1; j >= 0; j--) {
+          var el = existingKatex[j];
+          var ariaLabel = el.getAttribute('aria-label');
+          if (ariaLabel) {
+            var textNode = document.createTextNode(ariaLabel);
+            el.parentNode.replaceChild(textNode, el);
+          }
+        }
+
+        if (typeof renderMathInElement === 'function') {
+          renderMathInElement(section, {
+            delimiters: [
+              {left: '$$', right: '$$', display: true},
+              {left: '$', right: '$', display: false},
+            ],
+            throwOnError: false
+          });
+        }
+      });
+    }
+  ]
+};
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+
+<script>
+// Collapsible sidebar sections with MutationObserver
+(function() {
+  var STORAGE_KEY = 'kb-collapsed-sections';
+
+  function getCollapsed() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch(e) { return []; }
+  }
+  function setCollapsed(arr) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); } catch(e) {}
+  }
+
+  // Clear stale state from buggy previous version
+  if (!localStorage.getItem('kb-cs-v3')) {
+    localStorage.setItem('kb-cs-v3', '1');
+    setCollapsed([]);
+  }
+
+  function initCollapsibleSections() {
+    var nav = document.querySelector('.sidebar-nav');
+    if (!nav) return;
+    var collapsed = getCollapsed();
+
+    // --- Level 1: category headers (e.g. "3D Gaussian Splatting") ---
+    var items = nav.querySelectorAll(':scope > ul > li');
+    items.forEach(function(li) {
+      var strong = li.querySelector(':scope > p > strong');
+      var subList = li.querySelector(':scope > ul');
+      if (!strong || !subList) return;
+
+      // Extract title from strong element (handles both initialized and uninitialized states)
+      var rawText = strong.textContent || '';
+      // Remove arrow characters and common formatting chars
+      var sectionTitle = 'cat:' + rawText.replace(/[\u25B8\u25BE\u25B6\u25C0]/g, '').replace(/\s+/g, ' ').trim();
+      if (!sectionTitle) return;
+
+      // Check if already has arrow = already initialized
+      var existingArrow = strong.querySelector('.folder-arrow');
+      if (existingArrow) {
+        var shouldBeCollapsed = collapsed.indexOf(sectionTitle) >= 0;
+        subList.style.display = shouldBeCollapsed ? 'none' : 'block';
+        existingArrow.textContent = shouldBeCollapsed ? '\u25B8' : '\u25BE';
+        existingArrow.style.transform = shouldBeCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+        return;
+      }
+
+      var shouldBeCollapsed = collapsed.indexOf(sectionTitle) >= 0;
+      subList.style.display = shouldBeCollapsed ? 'none' : 'block';
+
+      var arrow = document.createElement('span');
+      arrow.className = 'folder-arrow';
+      arrow.textContent = shouldBeCollapsed ? '\u25B8' : '\u25BE';
+      arrow.style.cssText = 'display:inline-block;width:14px;margin-right:2px;font-size:10px;transition:transform 0.2s;cursor:pointer;transform:' + (shouldBeCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)');
+      strong.insertBefore(arrow, strong.firstChild);
+
+      li.addEventListener('click', function(e) {
+        var target = e.target;
+        if (target !== strong && target !== arrow && !arrow.contains(target)) return;
+        if (e.target.tagName === 'A') return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        var currentSub = li.querySelector(':scope > ul');
+        var currentArrow = strong.querySelector('.folder-arrow');
+        if (!currentSub) return;
+
+        var isOpen = currentSub.style.display !== 'none';
+        currentSub.style.display = isOpen ? 'none' : 'block';
+        if (currentArrow) {
+          currentArrow.style.transform = isOpen ? 'rotate(-90deg)' : 'rotate(0deg)';
+          currentArrow.textContent = isOpen ? '\u25B8' : '\u25BE';
+        }
+
+        var c = getCollapsed();
+        if (isOpen) { if (c.indexOf(sectionTitle) < 0) c.push(sectionTitle); }
+        else { c = c.filter(function(t) { return t !== sectionTitle; }); }
+        setCollapsed(c);
+      });
+    });
+
+    // --- Level 2: page subheadings from subMaxLevel ---
+    // Target only page-level links that have subheading lists (depth 3 in the nav tree)
+    var pageItems = nav.querySelectorAll(':scope > ul > li > ul > li');
+    pageItems.forEach(function(li) {
+      var anchor = li.querySelector(':scope > a');
+      var subList = li.querySelector(':scope > ul');
+      if (!anchor || !subList) return;
+
+      var rawText = anchor.textContent || '';
+      var sectionTitle = 'page:' + rawText.replace(/\s+/g, ' ').trim();
+      if (!sectionTitle) return;
+
+      // Check if already initialized
+      if (li.dataset.collapsible === 'page') {
+        var shouldBeCollapsed = collapsed.indexOf(sectionTitle) >= 0;
+        subList.style.display = shouldBeCollapsed ? 'none' : 'block';
+        var existingArrow = li.querySelector(':scope > .page-title-row > .folder-arrow');
+        if (existingArrow) {
+          existingArrow.style.transform = shouldBeCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+          existingArrow.textContent = shouldBeCollapsed ? '\u25B8' : '\u25BE';
+        }
+        return;
+      }
+      li.dataset.collapsible = 'page';
+
+      var shouldBeCollapsed = collapsed.indexOf(sectionTitle) >= 0;
+      subList.style.display = shouldBeCollapsed ? 'none' : 'block';
+
+      // Remove any old arrow that might be inside the anchor from previous code version
+      var oldArrowInAnchor = anchor.querySelector('.folder-arrow');
+      if (oldArrowInAnchor) oldArrowInAnchor.remove();
+
+      // Remove any old title row wrapper
+      var oldTitleRow = li.querySelector(':scope > .page-title-row');
+      if (oldTitleRow) {
+        var oldArrow = oldTitleRow.querySelector('.folder-arrow');
+        if (oldArrow) oldArrow.remove();
+        oldTitleRow.parentNode.insertBefore(anchor, oldTitleRow);
+        oldTitleRow.remove();
+      }
+
+      // Create a flex title row containing arrow + anchor
+      var titleRow = document.createElement('span');
+      titleRow.className = 'page-title-row';
+      titleRow.style.cssText = 'display:flex;align-items:center;width:100%;';
+
+      // Insert arrow inside the title row
+      var arrow = document.createElement('span');
+      arrow.className = 'folder-arrow';
+      arrow.textContent = shouldBeCollapsed ? '\u25B8' : '\u25BE';
+      arrow.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:18px;min-width:18px;height:100%;font-size:13px;transition:transform 0.2s;cursor:pointer;transform:' + (shouldBeCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)') + ';flex-shrink:0;line-height:1;user-select:none;';
+
+      titleRow.appendChild(arrow);
+      titleRow.appendChild(anchor);
+      li.insertBefore(titleRow, subList);
+
+      arrow.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var currentSub = li.querySelector(':scope > ul');
+        if (!currentSub) return;
+        var isOpen = currentSub.style.display !== 'none';
+        currentSub.style.display = isOpen ? 'none' : 'block';
+        arrow.style.transform = isOpen ? 'rotate(-90deg)' : 'rotate(0deg)';
+        arrow.textContent = isOpen ? '\u25B8' : '\u25BE';
+        var c = getCollapsed();
+        if (isOpen) { if (c.indexOf(sectionTitle) < 0) c.push(sectionTitle); }
+        else { c = c.filter(function(t) { return t !== sectionTitle; }); }
+        setCollapsed(c);
+      });
+    });
+  }
+
+  // Run immediately
+  setTimeout(initCollapsibleSections, 200);
+
+  // Watch sidebar for DOM changes (re-render, collapse)
+  var observer = new MutationObserver(function(mutations) {
+    // Only re-init if the sidebar list structure changed
+    var needsReinit = false;
+    for (var i = 0; i < mutations.length; i++) {
+      var m = mutations[i];
+      // Check if child list changed in the sidebar
+      if (m.target.classList && m.target.classList.contains('sidebar-nav')) {
+        needsReinit = true;
+        break;
+      }
+    }
+    if (needsReinit) {
+      setTimeout(initCollapsibleSections, 50);
+    }
+  });
+
+  // Wait for sidebar to exist then observe
+  function startObserver() {
+    var nav = document.querySelector('.sidebar-nav');
+    if (!nav) {
+      setTimeout(startObserver, 200);
+      return;
+    }
+    observer.observe(nav, { childList: true, subtree: true });
+    initCollapsibleSections();
+  }
+  startObserver();
+})();
+</script>
+
+<script>
+// TOC cleaner + sub-TOC click interceptor (rewrite href to prevent route change)
+(function() {
+  function fixSubTOCLinks() {
+    var tocLinks = document.querySelectorAll('.sidebar-nav .app-sub-sidebar a');
+    for (var j = 0; j < tocLinks.length; j++) {
+      var tocLink = tocLinks[j];
+      if (tocLink.dataset.subTocFixed) continue;
+      tocLink.dataset.subTocFixed = '1';
+
+      var href = tocLink.getAttribute('href') || '';
+      var idMatch = href.match(/#.*[?&]id=([^&]*)/);
+      if (idMatch) {
+        var headingId = decodeURIComponent(idMatch[1]);
+        // Rewrite to fragment-only href so Docsify won't re-route
+        tocLink.setAttribute('href', '#' + encodeURIComponent(headingId));
+        // Clean display text
+        var text = tocLink.textContent;
+        text = text.replace(/\x01US\x01/g, '_');
+        text = text.replace(/\$\$[^$]*\$\$/g, '');
+        text = text.replace(/\$[^$]*\$/g, '');
+        text = text.replace(/\\[a-zA-Z]+\{[^}]*\}/g, '');
+        text = text.replace(/\\[a-zA-Z]+/g, '');
+        text = text.replace(/\s+/g, ' ').trim();
+        if (text && text !== tocLink.textContent) {
+          tocLink.textContent = text;
+        }
+      }
+    }
+  }
+
+  function cleanTOC() {
+    fixSubTOCLinks();
+    var tocLinks = document.querySelectorAll('.sidebar-nav .app-sub-sidebar a');
+    for (var j = 0; j < tocLinks.length; j++) {
+      var tocLink = tocLinks[j];
+      var text = tocLink.textContent;
+      text = text.replace(/\x01US\x01/g, '_');
+      text = text.replace(/\$\$[^$]*\$\$/g, '');
+      text = text.replace(/\$[^$]*\$/g, '');
+      text = text.replace(/\\[a-zA-Z]+\{[^}]*\}/g, '');
+      text = text.replace(/\\[a-zA-Z]+/g, '');
+      text = text.replace(/\s+/g, ' ').trim();
+      if (text && text !== tocLink.textContent) {
+        tocLink.textContent = text;
+      }
+      var href = tocLink.getAttribute('href') || '';
+      var idMatch = href.match(/#(.+)$/);
+      if (idMatch) {
+        var anchor = idMatch[1];
+        // Extract ?id= param before cleaning
+        var idParam = '';
+        var cleanPath = anchor;
+        var qIdx = anchor.indexOf('?id=');
+        if (qIdx >= 0) {
+          idParam = anchor.substring(qIdx);
+          cleanPath = anchor.substring(0, qIdx);
+        }
+        var cleanAnchor = decodeURIComponent(cleanPath)
+          .replace(/\x01US\x01/g, '_')
+          .replace(/\$\$[^$]*\$\$/g, '')
+          .replace(/\$[^$]*\$/g, '')
+          .replace(/\\[a-zA-Z]+\{[^}]*\}/g, '')
+          .replace(/\\[a-zA-Z]+/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '')
+          .toLowerCase();
+        var basePath = href.split('#')[0];
+        tocLink.setAttribute('href', basePath + '#' + encodeURIComponent(cleanAnchor) + idParam);
+      }
+    }
+  }
+  setInterval(cleanTOC, 100);
+  window.addEventListener('hashchange', function() {
+    [50, 200, 500, 1000].forEach(function(d) { setTimeout(cleanTOC, d); });
+  });
+})();
+</script>
+</body>
+</html>
