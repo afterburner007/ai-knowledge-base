@@ -8,7 +8,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #1a1a1a;
+    background: #1e1e2e;
     color: #dcddde;
     overflow: hidden;
     height: 100vh;
@@ -34,8 +34,8 @@
   .tooltip.visible { opacity: 1; }
 
   .node-label {
-    fill: #b0b0b0;
-    font-size: 9.5px;
+    fill: #b8b8b8;
+    font-size: 10px;
     font-weight: 400;
     pointer-events: none;
     text-anchor: start;
@@ -43,8 +43,8 @@
   }
 
   .link-line {
-    stroke: #666;
-    stroke-opacity: 0.2;
+    stroke: #777;
+    stroke-opacity: 0.25;
   }
 
   .loading {
@@ -97,15 +97,15 @@
 (function() {
   // Muted pastel colors like Obsidian's default palette
   var CATEGORY_COLORS = {
-    '3dgs': '#e87a8a',
-    'avm': '#d49a6a',
-    'calibration': '#c8b87a',
-    'perception': '#7ac48a',
-    'tracking': '#6a9ae0',
-    'fusion': '#a080d0',
-    'platform': '#6ac0b8',
-    'tools': '#d090b8',
-    'general': '#888'
+    '3dgs': '#e57373',
+    'avm': '#ffb74d',
+    'calibration': '#fff176',
+    'perception': '#81c784',
+    'tracking': '#64b5f6',
+    'fusion': '#ba68c8',
+    'platform': '#4db6ac',
+    'tools': '#f06292',
+    'general': '#999'
   };
 
   var container = document.getElementById('graphContainer');
@@ -160,7 +160,7 @@
       if (d.labelY - 7 < minY) minY = d.labelY - 7;
       if (d.labelY + 7 > maxY) maxY = d.labelY + 7;
     });
-    var pad = 100;
+    var pad = 80;
     var bw = maxX - minX || 1;
     var bh = maxY - minY || 1;
     var scale = Math.min(
@@ -294,7 +294,7 @@
         .distance(45)
         .strength(0.25))
       .force('charge', d3.forceManyBody().strength(-50))
-      .force('center', d3.forceCenter(cx, cy).strength(0.04))
+      .force('center', d3.forceCenter(cx, cy).strength(0.05))
       .alphaDecay(0.02)
       .velocityDecay(0.5);
 
