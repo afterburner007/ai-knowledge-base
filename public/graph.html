@@ -260,11 +260,11 @@
       degrees[e.target] = (degrees[e.target] || 0) + 1;
     });
 
-    // Node radius: 4 base, up to 8 for highly connected
+    // Node radius: 4 base, up to 6 for highly connected (subtle variation)
     var maxDeg = Math.max(1, d3.max(Object.values(degrees)));
     nodes.forEach(function(n) {
       var deg = degrees[n.key] || 0;
-      n.r = 4 + 4 * Math.pow(deg / maxDeg, 0.8);
+      n.r = 4 + 2 * Math.pow(deg / maxDeg, 0.7);
       n.degree = deg;
     });
 
@@ -285,14 +285,14 @@
     });
 
     // === FORCE SIMULATION ===
+    // Obsidian-style: minimal centering, short links, moderate repulsion
     var sim = d3.forceSimulation(nodes)
       .force('link', d3.forceLink(resolvedEdges)
         .id(function(d) { return d.key; })
-        .distance(60)
-        .strength(0.25))
-      .force('charge', d3.forceManyBody().strength(-80))
-      .force('center', d3.forceCenter(cx, cy).strength(0.15))
-      .force('collision', d3.forceCollide().radius(function(d) { return d.r + 5; }))
+        .distance(50)
+        .strength(0.3))
+      .force('charge', d3.forceManyBody().strength(-60))
+      .force('center', d3.forceCenter(cx, cy).strength(0.02))
       .alphaDecay(0.02)
       .velocityDecay(0.5);
 
