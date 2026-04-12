@@ -8,7 +8,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #1e1e1e;
+    background: #1a1a1a;
     color: #dcddde;
     overflow: hidden;
     height: 100vh;
@@ -43,8 +43,8 @@
   }
 
   .link-line {
-    stroke: #555;
-    stroke-opacity: 0.15;
+    stroke: #666;
+    stroke-opacity: 0.2;
   }
 
   .loading {
@@ -294,7 +294,7 @@
         .distance(45)
         .strength(0.25))
       .force('charge', d3.forceManyBody().strength(-50))
-      .force('center', d3.forceCenter(cx, cy).strength(0.025))
+      .force('center', d3.forceCenter(cx, cy).strength(0.04))
       .alphaDecay(0.02)
       .velocityDecay(0.5);
 
