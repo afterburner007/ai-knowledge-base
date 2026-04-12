@@ -5,118 +5,484 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>关系图谱</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap');
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f5f5;
+    --bg-sidebar: #fafafa;
+    --bg-hover: #eee;
+    --bg-active: #e8e8e8;
+    --text-primary: #2c2c2c;
+    --text-secondary: #6b6b6b;
+    --text-muted: #999;
+    --border-color: #e8e8e8;
+    --edge-color: #d4d4d4;
+    --edge-opacity: 0.6;
+    --node-fill: #4a4a4a;
+    --accent: #7c5cfc;
+    --sidebar-width: 240px;
+    --toolbar-height: 48px;
+  }
+
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #1e1e2e;
-    color: #dcddde;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
     overflow: hidden;
     height: 100vh;
     width: 100vw;
+    display: flex;
   }
-  .graph-container { width: 100%; height: 100%; position: relative; }
-  .graph-container svg { width: 100%; height: 100%; display: block; }
 
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    height: 100vh;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-color);
+    min-height: 48px;
+  }
+
+  .sidebar-header .logo {
+    width: 18px;
+    height: 18px;
+    background: var(--accent);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sidebar-header .logo svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .sidebar-header span {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+  }
+
+  .sidebar-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+
+  .sidebar-tree::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .sidebar-tree::-webkit-scrollbar-thumb {
+    background: #ddd;
+    border-radius: 2px;
+  }
+
+  .tree-category {
+    user-select: none;
+  }
+
+  .tree-category-header {
+    display: flex;
+    align-items: center;
+    padding: 4px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    gap: 4px;
+    transition: background 0.1s;
+  }
+
+  .tree-category-header:hover {
+    background: var(--bg-hover);
+  }
+
+  .tree-chevron {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .tree-chevron.open {
+    transform: rotate(90deg);
+  }
+
+  .tree-chevron svg {
+    width: 10px;
+    height: 10px;
+    fill: var(--text-muted);
+  }
+
+  .tree-category-items {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.2s ease;
+  }
+
+  .tree-category-items.open {
+    max-height: 500px;
+  }
+
+  .tree-item {
+    padding: 3px 12px 3px 32px;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tree-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .tree-item.active {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .sidebar-footer {
+    padding: 8px 12px;
+    border-top: 1px solid var(--border-color);
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ===== MAIN GRAPH AREA ===== */
+  .graph-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Toolbar */
+  .toolbar {
+    height: var(--toolbar-height);
+    min-height: var(--toolbar-height);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    z-index: 20;
+  }
+
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .toolbar-btn {
+    width: 30px;
+    height: 30px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s;
+  }
+
+  .toolbar-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .toolbar-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .toolbar-title {
+    flex: 1;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0.03em;
+  }
+
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Graph container */
+  .graph-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-primary);
+  }
+
+  .graph-container svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .node-label {
+    fill: var(--text-primary);
+    font-size: 10px;
+    font-weight: 400;
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    pointer-events: none;
+    dominant-baseline: central;
+  }
+
+  .link-line {
+    stroke: var(--edge-color);
+    stroke-opacity: var(--edge-opacity);
+  }
+
+  .node-circle {
+    fill: var(--node-fill);
+  }
+
+  .node-circle.colored {
+    opacity: 0.75;
+  }
+
+  /* Tooltip */
   .tooltip {
     position: absolute;
-    background: #2a2a2a;
-    border: 1px solid #404040;
-    border-radius: 4px;
-    padding: 4px 8px;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 5px 10px;
     font-size: 11px;
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.15s;
     z-index: 100;
     white-space: nowrap;
-    color: #dcddde;
+    color: var(--text-primary);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   }
+
   .tooltip.visible { opacity: 1; }
 
-  .node-label {
-    fill: #b8b8b8;
-    font-size: 10px;
-    font-weight: 400;
-    pointer-events: none;
-    text-anchor: start;
-    dominant-baseline: central;
-  }
-
-  .link-line {
-    stroke: #777;
-    stroke-opacity: 0.25;
-  }
-
+  /* Loading */
   .loading {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 100%;
     font-size: 13px;
-    color: #666;
+    color: var(--text-muted);
   }
 
-  .controls {
+  /* Zoom controls */
+  .zoom-controls {
     position: absolute;
-    top: 8px;
-    right: 12px;
+    bottom: 16px;
+    right: 16px;
     display: flex;
+    flex-direction: column;
     gap: 2px;
     z-index: 10;
   }
+
   .zoom-btn {
-    background: rgba(50, 50, 50, 0.7);
-    border: 1px solid #555;
-    color: #999;
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border-color);
+    background: #fff;
+    color: var(--text-secondary);
     cursor: pointer;
     font-size: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 3px;
+    transition: background 0.1s;
   }
-  .zoom-btn:hover { background: #444; color: #ccc; }
+
+  .zoom-btn:first-child { border-radius: 6px 6px 0 0; }
+  .zoom-btn:last-child { border-radius: 0 0 6px 6px; }
+  .zoom-btn:hover { background: var(--bg-hover); }
+
+  /* Sidebar toggle */
+  .sidebar-toggle {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 48px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-left: none;
+    border-radius: 0 6px 6px 0;
+    cursor: pointer;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+    color: var(--text-muted);
+  }
+
+  .sidebar-toggle:hover {
+    opacity: 1;
+    background: var(--bg-hover);
+  }
+
+  .sidebar.collapsed ~ .graph-area .sidebar-toggle {
+    opacity: 1;
+  }
+
+  .sidebar-toggle svg {
+    width: 10px;
+    height: 10px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+  }
 </style>
 </head>
 <body>
 
-<div class="graph-container" id="graphContainer">
-  <div class="loading" id="loading">加载中...</div>
-  <div class="controls">
-    <button class="zoom-btn" id="zoomIn">+</button>
-    <button class="zoom-btn" id="zoomOut">-</button>
-    <button class="zoom-btn" id="zoomFit">&#8982;</button>
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="4"/></svg>
+    </div>
+    <span>wiki</span>
   </div>
-  <div class="tooltip" id="tooltip"></div>
+  <div class="sidebar-tree" id="sidebarTree"></div>
+  <div class="sidebar-footer">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+    <span id="nodeCount">0 篇文档</span>
+  </div>
+</aside>
+
+<!-- MAIN GRAPH -->
+<div class="graph-area" id="graphArea">
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button class="toolbar-btn" title="Back" onclick="history.back()">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button class="toolbar-btn" title="Forward" onclick="history.forward()">
+        <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <div class="toolbar-title">关系图谱</div>
+    <div class="toolbar-right">
+      <button class="toolbar-btn" title="Filter" id="filterBtn">
+        <svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      </button>
+      <button class="toolbar-btn" title="Settings" id="settingsBtn">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Graph canvas -->
+  <div class="graph-container" id="graphContainer">
+    <div class="loading" id="loading">加载中...</div>
+    <div class="tooltip" id="tooltip"></div>
+    <div class="zoom-controls">
+      <button class="zoom-btn" id="zoomIn">+</button>
+      <button class="zoom-btn" id="zoomOut">−</button>
+      <button class="zoom-btn" id="zoomFit" title="适应视图">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Toggle sidebar -->
+  <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <script>
 (function() {
-  // Muted pastel colors like Obsidian's default palette
+  // Category display names (matches server.py)
+  var CATEGORY_NAMES = {
+    '3dgs': '3DGS',
+    'avm': 'AVM',
+    'calibration': 'Calibration',
+    'perception': 'Perception',
+    'tracking': 'Tracking',
+    'fusion': 'Fusion',
+    'platform': 'Platform',
+    'tools': 'Tools'
+  };
+
+  // Category colors for hover highlights
   var CATEGORY_COLORS = {
     '3dgs': '#e57373',
     'avm': '#ffb74d',
-    'calibration': '#fff176',
-    'perception': '#81c784',
-    'tracking': '#64b5f6',
-    'fusion': '#ba68c8',
-    'platform': '#4db6ac',
-    'tools': '#f06292',
+    'calibration': '#f0c040',
+    'perception': '#66bb6a',
+    'tracking': '#42a5f5',
+    'fusion': '#ab47bc',
+    'platform': '#26a69a',
+    'tools': '#ec407a',
     'general': '#999'
   };
 
+  // State
   var container = document.getElementById('graphContainer');
   var tooltip = document.getElementById('tooltip');
   var loadingEl = document.getElementById('loading');
+  var sidebarEl = document.getElementById('sidebar');
+  var sidebarTreeEl = document.getElementById('sidebarTree');
+  var nodeCountEl = document.getElementById('nodeCount');
 
   var width, height;
   var svg, g, zoom;
   var link, node;
   var graphData = { nodes: [], edges: [] };
   var adjacencyMap = {};
+  var activeFilter = null;
+  var sim; // Keep sim reference for dragging
 
   function init() {
     width = container.clientWidth;
@@ -130,7 +496,7 @@
     g = svg.append('g');
 
     zoom = d3.zoom()
-      .scaleExtent([0.1, 6])
+      .scaleExtent([0.1, 8])
       .on('zoom', function(event) {
         g.attr('transform', event.transform);
       });
@@ -138,12 +504,81 @@
     svg.call(zoom);
 
     document.getElementById('zoomIn').onclick = function() {
-      svg.transition().duration(200).call(zoom.scaleBy, 1.5);
+      svg.transition().duration(200).call(zoom.scaleBy, 1.4);
     };
     document.getElementById('zoomOut').onclick = function() {
-      svg.transition().duration(200).call(zoom.scaleBy, 0.65);
+      svg.transition().duration(200).call(zoom.scaleBy, 0.7);
     };
     document.getElementById('zoomFit').onclick = fitView;
+
+    // Sidebar toggle
+    document.getElementById('sidebarToggle').onclick = function() {
+      sidebarEl.classList.toggle('collapsed');
+    };
+
+    // Filter button - cycle through categories
+    var categories = Object.keys(CATEGORY_NAMES);
+    var filterIdx = -1;
+    document.getElementById('filterBtn').onclick = function() {
+      filterIdx = (filterIdx + 1) % (categories.length + 1);
+      activeFilter = filterIdx < categories.length ? categories[filterIdx] : null;
+      this.style.color = activeFilter ? 'var(--accent)' : '';
+      applyFilter();
+    };
+
+    buildSidebar();
+  }
+
+  function buildSidebar() {
+    var categories = {};
+    graphData.nodes.forEach(function(n) {
+      var cat = n.category || 'general';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push(n);
+    });
+
+    sidebarTreeEl.innerHTML = '';
+
+    var catKeys = Object.keys(CATEGORY_NAMES);
+    catKeys.forEach(function(catKey) {
+      var items = categories[catKey] || [];
+      if (items.length === 0) return;
+
+      var catDiv = document.createElement('div');
+      catDiv.className = 'tree-category';
+
+      var header = document.createElement('div');
+      header.className = 'tree-category-header';
+      header.innerHTML =
+        '<span class="tree-chevron open"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>' +
+        '<span>' + CATEGORY_NAMES[catKey] + '</span>' +
+        '<span style="margin-left:auto;font-size:10px;color:var(--text-muted)">' + items.length + '</span>';
+
+      var itemsDiv = document.createElement('div');
+      itemsDiv.className = 'tree-category-items open';
+
+      items.sort(function(a, b) { return a.title.localeCompare(b.title); }).forEach(function(item) {
+        var itemEl = document.createElement('div');
+        itemEl.className = 'tree-item';
+        itemEl.textContent = item.title;
+        itemEl.setAttribute('data-key', item.key);
+        itemEl.onclick = function() {
+          // Navigate to wiki page
+          window.location.href = '/#/wiki/' + item.key;
+        };
+        itemsDiv.appendChild(itemEl);
+      });
+
+      header.onclick = function() {
+        var chevron = header.querySelector('.tree-chevron');
+        chevron.classList.toggle('open');
+        itemsDiv.classList.toggle('open');
+      };
+
+      catDiv.appendChild(header);
+      catDiv.appendChild(itemsDiv);
+      sidebarTreeEl.appendChild(catDiv);
+    });
   }
 
   function fitView() {
@@ -160,17 +595,17 @@
       if (d.labelY - 7 < minY) minY = d.labelY - 7;
       if (d.labelY + 7 > maxY) maxY = d.labelY + 7;
     });
-    var pad = 80;
+    var pad = 60;
     var bw = maxX - minX || 1;
     var bh = maxY - minY || 1;
     var scale = Math.min(
       (width - pad * 2) / bw,
       (height - pad * 2) / bh,
-      1.8
+      2
     );
     var tx = width / 2 - (minX + bw / 2) * scale;
     var ty = height / 2 - (minY + bh / 2) * scale;
-    svg.transition().duration(600).call(
+    svg.transition().duration(500).call(
       zoom.transform,
       d3.zoomIdentity.translate(tx, ty).scale(scale)
     );
@@ -181,8 +616,10 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         graphData = data;
+        nodeCountEl.textContent = data.nodes.length + ' 篇文档';
         loadingEl.style.display = 'none';
         renderGraph();
+        buildSidebar();
       })
       .catch(function(err) {
         loadingEl.textContent = '加载失败: ' + err.message;
@@ -205,13 +642,20 @@
     return (text || '').length * 6 + 2;
   }
 
-  function resolveLabelCollisions(nodes, iterations) {
+  // Place labels to the right of nodes, resolve collisions
+  function placeLabels(nodes) {
+    nodes.forEach(function(n) {
+      n.labelX = n.x + n.r + 7;
+      n.labelY = n.y;
+    });
+
+    // Iterative collision resolution
     var labelBounds = nodes.map(function(n) {
       var w = estimateLabelWidth(n.id);
       return { x: n.labelX, y: n.labelY, w: w, h: 12 };
     });
 
-    for (var iter = 0; iter < iterations; iter++) {
+    for (var iter = 0; iter < 300; iter++) {
       var moved = false;
       for (var i = 0; i < nodes.length; i++) {
         for (var j = i + 1; j < nodes.length; j++) {
@@ -222,14 +666,14 @@
               a.y - pad < b.y + b.h + pad && a.y + a.h + pad > b.y - pad) {
             var overlapX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
             var overlapY = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
-            if (overlapY < overlapX * 0.5) {
+            if (overlapY < overlapX) {
               var dy = (a.y <= b.y) ? -1 : 1;
-              a.y += dy * (overlapY * 0.5 + 1.5);
-              b.y -= dy * (overlapY * 0.5 + 1.5);
+              a.y += dy * (overlapY * 0.5 + 2);
+              b.y -= dy * (overlapY * 0.5 + 2);
             } else {
               var dx = (a.x <= b.x) ? -1 : 1;
-              a.x += dx * (overlapX * 0.5 + 1.5);
-              b.x -= dx * (overlapX * 0.5 + 1.5);
+              a.x += dx * (overlapX * 0.5 + 2);
+              b.x -= dx * (overlapX * 0.5 + 2);
             }
             moved = true;
           }
@@ -242,6 +686,25 @@
       nodes[k].labelX = labelBounds[k].x;
       nodes[k].labelY = labelBounds[k].y;
     }
+  }
+
+  function applyFilter() {
+    if (!node || !link) return;
+    if (!activeFilter) {
+      node.transition().duration(150).style('opacity', 1);
+      link.transition().duration(150).style('opacity', 1);
+      return;
+    }
+    var matchedKeys = new Set();
+    graphData.nodes.forEach(function(n) {
+      if (n.category === activeFilter) matchedKeys.add(n.key);
+    });
+    node.transition().duration(150)
+      .style('opacity', function(d) { return matchedKeys.has(d.key) ? 1 : 0.05; });
+    link.transition().duration(150)
+      .style('opacity', function(l) {
+        return matchedKeys.has(l.source.key) && matchedKeys.has(l.target.key) ? 1 : 0.02;
+      });
   }
 
   function renderGraph() {
@@ -263,12 +726,13 @@
       degrees[e.target] = (degrees[e.target] || 0) + 1;
     });
 
-    // Small uniform nodes: 4-6px
+    // Node radius: 4 base, up to 7 for hubs
     var maxDeg = Math.max(1, d3.max(Object.values(degrees)));
-    nodes.forEach(function(n) {
+    nodes.forEach(function(n, i) {
       var deg = degrees[n.key] || 0;
-      n.r = 4 + 2 * Math.pow(deg / maxDeg, 0.8);
+      n.r = 3.5 + 2.5 * Math.pow(deg / maxDeg, 0.7);
       n.degree = deg;
+      n.__idx = i;
     });
 
     // Start near center
@@ -288,13 +752,13 @@
     });
 
     // === FORCE SIMULATION ===
-    var sim = d3.forceSimulation(nodes)
+    sim = d3.forceSimulation(nodes)
       .force('link', d3.forceLink(resolvedEdges)
         .id(function(d) { return d.key; })
-        .distance(55)
-        .strength(0.25))
-      .force('charge', d3.forceManyBody().strength(-45))
-      .force('center', d3.forceCenter(cx, cy).strength(0.01))
+        .distance(65)
+        .strength(0.2))
+      .force('charge', d3.forceManyBody().strength(-50))
+      .force('center', d3.forceCenter(cx, cy).strength(0.02))
       .alphaDecay(0.02)
       .velocityDecay(0.5);
 
@@ -303,20 +767,16 @@
     for (var i = 0; i < 500; i++) sim.tick();
     sim.stop();
 
-    // === LABELS: right of node ===
-    nodes.forEach(function(n) {
-      n.labelX = n.x + n.r + 5;
-      n.labelY = n.y;
-    });
-    resolveLabelCollisions(nodes, 120);
+    // Place labels
+    placeLabels(nodes);
 
-    // === RENDER LINKS (below nodes) ===
+    // === RENDER LINKS ===
     link = g.append('g')
       .selectAll('line')
       .data(resolvedEdges)
       .join('line')
       .attr('class', 'link-line')
-      .attr('stroke-width', 0.5)
+      .attr('stroke-width', 0.6)
       .attr('x1', function(d) { return d.source.x; })
       .attr('y1', function(d) { return d.source.y; })
       .attr('x2', function(d) { return d.target.x; })
@@ -333,18 +793,17 @@
         return 'translate(' + d.x + ',' + d.y + ')';
       });
 
+    // Dark gray nodes (Obsidian style)
     nodeGroup.append('circle')
       .attr('class', 'node-circle')
-      .attr('r', function(d) { return d.r; })
-      .attr('fill', function(d) {
-        return CATEGORY_COLORS[d.category || 'general'] || '#888';
-      });
+      .attr('r', function(d) { return d.r; });
 
     // Labels
     nodeGroup.append('text')
       .attr('class', 'node-label')
       .attr('x', function(d) { return d.labelX - d.x; })
       .attr('y', function(d) { return d.labelY - d.y; })
+      .attr('text-anchor', 'start')
       .text(function(d) { return d.id; });
 
     node = nodeGroup;
@@ -356,28 +815,28 @@
     nodeGroup
       .on('mouseover', function(event, d) {
         event.stopPropagation();
-        var color = CATEGORY_COLORS[d.category || 'general'] || '#888';
+        var color = CATEGORY_COLORS[d.category || 'general'];
         var connected = adjacencyMap[d.key] || new Set();
         connected.add(d.key);
 
-        nodeGroup.transition().duration(60)
-          .style('opacity', function(n) { return connected.has(n.key) ? 1 : 0.05; });
-        link.transition().duration(60)
+        // Dim unrelated
+        nodeGroup.transition().duration(80)
+          .style('opacity', function(n) { return connected.has(n.key) ? 1 : 0.08; });
+        link.transition().duration(80)
           .style('opacity', function(l) {
-            return (l.source.key === d.key || l.target.key === d.key) ? 0.5 : 0.01;
-          })
-          .attr('stroke', function(l) {
-            return (l.source.key === d.key || l.target.key === d.key) ? color : '#555';
+            return (l.source.key === d.key || l.target.key === d.key) ? 0.7 : 0.02;
           });
 
+        // Highlight hovered
         d3.select(this).select('.node-circle')
           .transition().duration(60)
-          .attr('r', d.r + 2.5);
+          .attr('r', d.r + 2)
+          .attr('fill', color);
         d3.select(this).select('.node-label')
           .transition().duration(60)
-          .attr('fill', '#fff');
+          .attr('fill', color);
 
-        tooltip.textContent = d.id;
+        tooltip.textContent = d.title || d.id;
         tooltip.classList.add('visible');
         moveTooltip(event);
       })
@@ -388,17 +847,17 @@
       .on('mouseout', function(event) {
         event.stopPropagation();
 
-        nodeGroup.transition().duration(100).style('opacity', 1);
-        link.transition().duration(100)
-          .style('opacity', 0.15)
-          .attr('stroke', '#555');
+        nodeGroup.transition().duration(120).style('opacity', 1);
+        link.transition().duration(120)
+          .style('opacity', 1);
 
         nodeGroup.select('.node-circle')
           .transition().duration(100)
-          .attr('r', function(d) { return d.r; });
+          .attr('r', function(d) { return d.r; })
+          .attr('fill', 'var(--node-fill)');
         nodeGroup.select('.node-label')
           .transition().duration(100)
-          .attr('fill', '#b0b0b0');
+          .attr('fill', 'var(--text-primary)');
 
         tooltip.classList.remove('visible');
       })
@@ -411,7 +870,7 @@
     nodeGroup.call(d3.drag()
       .on('start', function(event, d) {
         event.sourceEvent.stopPropagation();
-        if (!event.active) sim.alphaTarget(0.1).restart();
+        if (!event.active && sim) sim.alphaTarget(0.1).restart();
         d.fx = d.x; d.fy = d.y;
       })
       .on('drag', function(event, d) {
@@ -419,20 +878,21 @@
         d.fx = event.x; d.fy = event.y;
       })
       .on('end', function(event, d) {
-        if (!event.active) sim.alphaTarget(0);
+        if (!event.active && sim) sim.alphaTarget(0);
         d.fx = null; d.fy = null;
       }));
 
-    setTimeout(fitView, 50);
+    // Fit view
+    setTimeout(fitView, 60);
   }
 
   function moveTooltip(event) {
     var rect = container.getBoundingClientRect();
-    var x = event.clientX - rect.left + 12;
+    var x = event.clientX - rect.left + 14;
     var y = event.clientY - rect.top - 8;
     var tw = tooltip.offsetWidth;
     var th = tooltip.offsetHeight;
-    if (x + tw > rect.width - 8) x = event.clientX - rect.left - tw - 12;
+    if (x + tw > rect.width - 8) x = event.clientX - rect.left - tw - 14;
     if (y + th > rect.height - 8) y = rect.height - th - 8;
     if (y < 8) y = 8;
     tooltip.style.left = x + 'px';
