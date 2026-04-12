@@ -8,7 +8,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #202020;
+    background: #1e1e1e;
     color: #dcddde;
     overflow: hidden;
     height: 100vh;
@@ -19,11 +19,11 @@
 
   .tooltip {
     position: absolute;
-    background: #2f2f2f;
-    border: 1px solid #444;
+    background: #2a2a2a;
+    border: 1px solid #404040;
     border-radius: 4px;
-    padding: 5px 10px;
-    font-size: 12px;
+    padding: 4px 8px;
+    font-size: 11px;
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.15s;
@@ -34,8 +34,8 @@
   .tooltip.visible { opacity: 1; }
 
   .node-label {
-    fill: #b9b9b9;
-    font-size: 10px;
+    fill: #b0b0b0;
+    font-size: 9.5px;
     font-weight: 400;
     pointer-events: none;
     text-anchor: start;
@@ -43,8 +43,8 @@
   }
 
   .link-line {
-    stroke: #505050;
-    stroke-opacity: 0.35;
+    stroke: #555;
+    stroke-opacity: 0.15;
   }
 
   .loading {
@@ -95,17 +95,17 @@
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <script>
 (function() {
-  // Obsidian-like colors
+  // Muted pastel colors like Obsidian's default palette
   var CATEGORY_COLORS = {
-    '3dgs': '#f38ba8',
-    'avm': '#fab387',
-    'calibration': '#f9e2af',
-    'perception': '#a6e3a1',
-    'tracking': '#89b4fa',
-    'fusion': '#cba6f7',
-    'platform': '#94e2d5',
-    'tools': '#f5c2e7',
-    'general': '#999'
+    '3dgs': '#e87a8a',
+    'avm': '#d49a6a',
+    'calibration': '#c8b87a',
+    'perception': '#7ac48a',
+    'tracking': '#6a9ae0',
+    'fusion': '#a080d0',
+    'platform': '#6ac0b8',
+    'tools': '#d090b8',
+    'general': '#888'
   };
 
   var container = document.getElementById('graphContainer');
@@ -150,25 +150,23 @@
     if (!node || node.empty()) return;
     var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     node.each(function(d) {
-      // Node bounds
       if (d.x - d.r < minX) minX = d.x - d.r;
       if (d.y - d.r < minY) minY = d.y - d.r;
       if (d.x + d.r > maxX) maxX = d.x + d.r;
       if (d.y + d.r > maxY) maxY = d.y + d.r;
-      // Label bounds
       var lw = estimateLabelWidth(d.id);
       if (d.labelX - lw / 2 < minX) minX = d.labelX - lw / 2;
       if (d.labelX + lw / 2 > maxX) maxX = d.labelX + lw / 2;
       if (d.labelY - 7 < minY) minY = d.labelY - 7;
       if (d.labelY + 7 > maxY) maxY = d.labelY + 7;
     });
-    var pad = 80;
+    var pad = 100;
     var bw = maxX - minX || 1;
     var bh = maxY - minY || 1;
     var scale = Math.min(
       (width - pad * 2) / bw,
       (height - pad * 2) / bh,
-      2
+      1.8
     );
     var tx = width / 2 - (minX + bw / 2) * scale;
     var ty = height / 2 - (minY + bh / 2) * scale;
@@ -204,14 +202,13 @@
   }
 
   function estimateLabelWidth(text) {
-    return (text || '').length * 6.2 + 4;
+    return (text || '').length * 6 + 2;
   }
 
-  // Resolve label overlaps: push labels apart vertically first, then horizontally
   function resolveLabelCollisions(nodes, iterations) {
     var labelBounds = nodes.map(function(n) {
       var w = estimateLabelWidth(n.id);
-      return { x: n.labelX, y: n.labelY, w: w, h: 13 };
+      return { x: n.labelX, y: n.labelY, w: w, h: 12 };
     });
 
     for (var iter = 0; iter < iterations; iter++) {
@@ -220,20 +217,19 @@
         for (var j = i + 1; j < nodes.length; j++) {
           var a = labelBounds[i];
           var b = labelBounds[j];
-          var pad = 4;
+          var pad = 3;
           if (a.x - pad < b.x + b.w + pad && a.x + a.w + pad > b.x - pad &&
               a.y - pad < b.y + b.h + pad && a.y + a.h + pad > b.y - pad) {
             var overlapX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
             var overlapY = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
-            // Prioritize vertical separation (labels are wider than tall)
-            if (overlapY < overlapX * 0.6) {
+            if (overlapY < overlapX * 0.5) {
               var dy = (a.y <= b.y) ? -1 : 1;
-              a.y += dy * (overlapY * 0.5 + 2);
-              b.y -= dy * (overlapY * 0.5 + 2);
+              a.y += dy * (overlapY * 0.5 + 1.5);
+              b.y -= dy * (overlapY * 0.5 + 1.5);
             } else {
               var dx = (a.x <= b.x) ? -1 : 1;
-              a.x += dx * (overlapX * 0.5 + 2);
-              b.x -= dx * (overlapX * 0.5 + 2);
+              a.x += dx * (overlapX * 0.5 + 1.5);
+              b.x -= dx * (overlapX * 0.5 + 1.5);
             }
             moved = true;
           }
@@ -259,7 +255,7 @@
     var cx = width / 2;
     var cy = height / 2;
 
-    // Calculate degrees for node sizing
+    // Calculate degrees
     var degrees = {};
     nodes.forEach(function(n) { degrees[n.key] = 0; });
     edges.forEach(function(e) {
@@ -267,18 +263,18 @@
       degrees[e.target] = (degrees[e.target] || 0) + 1;
     });
 
-    // Node radius: 4 base, up to 6 for highly connected (subtle variation)
+    // Small uniform nodes: 4-6px
     var maxDeg = Math.max(1, d3.max(Object.values(degrees)));
     nodes.forEach(function(n) {
       var deg = degrees[n.key] || 0;
-      n.r = 4 + 2 * Math.pow(deg / maxDeg, 0.7);
+      n.r = 4 + 2 * Math.pow(deg / maxDeg, 0.8);
       n.degree = deg;
     });
 
-    // Start all near center
+    // Start near center
     nodes.forEach(function(n) {
-      n.x = cx + (Math.random() - 0.5) * 30;
-      n.y = cy + (Math.random() - 0.5) * 30;
+      n.x = cx + (Math.random() - 0.5) * 20;
+      n.y = cy + (Math.random() - 0.5) * 20;
     });
 
     // Resolve edges
@@ -292,14 +288,13 @@
     });
 
     // === FORCE SIMULATION ===
-    // Obsidian-style: minimal centering, short links, moderate repulsion
     var sim = d3.forceSimulation(nodes)
       .force('link', d3.forceLink(resolvedEdges)
         .id(function(d) { return d.key; })
-        .distance(50)
-        .strength(0.3))
-      .force('charge', d3.forceManyBody().strength(-60))
-      .force('center', d3.forceCenter(cx, cy).strength(0.02))
+        .distance(45)
+        .strength(0.25))
+      .force('charge', d3.forceManyBody().strength(-50))
+      .force('center', d3.forceCenter(cx, cy).strength(0.025))
       .alphaDecay(0.02)
       .velocityDecay(0.5);
 
@@ -310,18 +305,18 @@
 
     // === LABELS: right of node ===
     nodes.forEach(function(n) {
-      n.labelX = n.x + n.r + 6;
+      n.labelX = n.x + n.r + 5;
       n.labelY = n.y;
     });
-    resolveLabelCollisions(nodes, 150);
+    resolveLabelCollisions(nodes, 120);
 
-    // === RENDER LINKS ===
+    // === RENDER LINKS (below nodes) ===
     link = g.append('g')
       .selectAll('line')
       .data(resolvedEdges)
       .join('line')
       .attr('class', 'link-line')
-      .attr('stroke-width', 0.7)
+      .attr('stroke-width', 0.5)
       .attr('x1', function(d) { return d.source.x; })
       .attr('y1', function(d) { return d.source.y; })
       .attr('x2', function(d) { return d.target.x; })
@@ -342,10 +337,10 @@
       .attr('class', 'node-circle')
       .attr('r', function(d) { return d.r; })
       .attr('fill', function(d) {
-        return CATEGORY_COLORS[d.category || 'general'] || '#999';
+        return CATEGORY_COLORS[d.category || 'general'] || '#888';
       });
 
-    // Labels at resolved positions (text-anchor: start)
+    // Labels
     nodeGroup.append('text')
       .attr('class', 'node-label')
       .attr('x', function(d) { return d.labelX - d.x; })
@@ -354,30 +349,30 @@
 
     node = nodeGroup;
 
-    // Build adjacency for hover
+    // Build adjacency
     adjacencyMap = buildAdjacency(nodes, resolvedEdges);
 
     // === INTERACTIONS ===
     nodeGroup
       .on('mouseover', function(event, d) {
         event.stopPropagation();
-        var color = CATEGORY_COLORS[d.category || 'general'] || '#999';
+        var color = CATEGORY_COLORS[d.category || 'general'] || '#888';
         var connected = adjacencyMap[d.key] || new Set();
         connected.add(d.key);
 
         nodeGroup.transition().duration(60)
-          .style('opacity', function(n) { return connected.has(n.key) ? 1 : 0.06; });
+          .style('opacity', function(n) { return connected.has(n.key) ? 1 : 0.05; });
         link.transition().duration(60)
           .style('opacity', function(l) {
-            return (l.source.key === d.key || l.target.key === d.key) ? 0.6 : 0.02;
+            return (l.source.key === d.key || l.target.key === d.key) ? 0.5 : 0.01;
           })
           .attr('stroke', function(l) {
-            return (l.source.key === d.key || l.target.key === d.key) ? color : '#505050';
+            return (l.source.key === d.key || l.target.key === d.key) ? color : '#555';
           });
 
         d3.select(this).select('.node-circle')
           .transition().duration(60)
-          .attr('r', d.r + 2);
+          .attr('r', d.r + 2.5);
         d3.select(this).select('.node-label')
           .transition().duration(60)
           .attr('fill', '#fff');
@@ -395,15 +390,15 @@
 
         nodeGroup.transition().duration(100).style('opacity', 1);
         link.transition().duration(100)
-          .style('opacity', 0.35)
-          .attr('stroke', '#505050');
+          .style('opacity', 0.15)
+          .attr('stroke', '#555');
 
         nodeGroup.select('.node-circle')
           .transition().duration(100)
           .attr('r', function(d) { return d.r; });
         nodeGroup.select('.node-label')
           .transition().duration(100)
-          .attr('fill', '#b9b9b9');
+          .attr('fill', '#b0b0b0');
 
         tooltip.classList.remove('visible');
       })
