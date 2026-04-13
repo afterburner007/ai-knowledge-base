@@ -150,6 +150,10 @@ class KBHandler(SimpleHTTPRequestHandler):
             self.serve_api_index()
         elif path == "/api/wiki-path-map":
             self.serve_path_map()
+        elif path == "/api/graph":
+            self.serve_graph()
+        elif path == "/graph" or path == "/graph.html":
+            self.serve_graph_page()
         else:
             super().do_GET()
 
@@ -235,6 +239,82 @@ class KBHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps(cache, ensure_ascii=False).encode())
+
+    def serve_graph_page(self):
+        """Serve the relationship graph HTML page."""
+        graph_path = PUBLIC_DIR / "graph.html"
+        if not graph_path.exists():
+            self.send_error(404, "graph.html not found")
+            return
+        self._serve_file(graph_path, "text/html; charset=utf-8")
+
+    def serve_graph(self):
+        """JSON API: return graph data (nodes + edges) for relationship graph."""
+        pages = build_index()
+        path_cache = _build_path_cache()
+
+        nodes = []
+        edges = []
+        edge_set = set()  # dedup
+
+        # Collect all wiki content for link extraction
+        wiki_content = {}
+        for path, info in pages.items():
+            file_path = WIKI_DIR / path
+            try:
+                wiki_content[path] = file_path.read_text(encoding="utf-8")
+            except Exception:
+                wiki_content[path] = ""
+
+        # Build nodes
+        for path, info in pages.items():
+            nodes.append({
+                "id": info["title"],
+                "key": path,  # relative path like "calibration/epipolar-geometry"
+                "category": info["category"],
+                "tags": info["tags"],
+                "updated": info["updated"],
+            })
+
+        # Build edges from [[wikilink]] and markdown links in "相关页面" sections
+        for path, content in wiki_content.items():
+            # Find the "相关页面" section and content after it
+            related_section = re.search(r"##\s+相关页面\s*\n([\s\S]*)", content)
+            if not related_section:
+                continue
+            related_text = related_section.group(1)
+
+            source_path = path
+            source_stem = str(WIKI_DIR / path).rsplit("/", 1)[-1].replace(".md", "")
+
+            # Extract [[wikilink|display]] and [[wikilink]] patterns
+            wikilinks = re.findall(r"\[\[([^\]|]+)", related_text)
+            # Extract markdown links [text](./relative.md) or [text](../cat/relative.md)
+            mdlinks = re.findall(r"\]\((\.\/|\.\.\/[^\)]+\/)([^\)]+)\.md\)", related_text)
+
+            all_targets = set()
+            for key in wikilinks:
+                key = key.strip()
+                # Try to resolve via path cache
+                if key in path_cache:
+                    all_targets.add(path_cache[key])
+            for prefix, target in mdlinks:
+                # Strip directory prefix to get just filename
+                target_stem = target.rsplit("/", 1)[-1] if "/" in target else target
+                if target_stem in path_cache:
+                    all_targets.add(path_cache[target_stem])
+
+            for target_path in all_targets:
+                edge_key = (source_path, target_path)
+                if source_path != target_path and edge_key not in edge_set:
+                    edge_set.add(edge_key)
+                    edges.append({"source": source_path, "target": target_path})
+
+        data = {"nodes": nodes, "edges": edges}
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(data, ensure_ascii=False).encode())
 
     def _serve_file(self, file_path, content_type):
         """Serve a file with the given content type."""

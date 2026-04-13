@@ -268,19 +268,36 @@
     font-family: 'DM Sans', -apple-system, sans-serif;
     pointer-events: none;
     dominant-baseline: central;
+    paint-order: stroke;
+    stroke: var(--bg-primary);
+    stroke-width: 3px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .link-line {
     stroke: var(--edge-color);
     stroke-opacity: var(--edge-opacity);
+    stroke-linecap: round;
   }
 
   .node-circle {
     fill: var(--node-fill);
   }
 
+  .node-glow {
+    fill: var(--node-fill);
+    opacity: 0.15;
+  }
+
   .node-circle.colored {
     opacity: 0.75;
+  }
+
+  /* Node hover pulse */
+  @keyframes node-pulse {
+    0% { r: 0; opacity: 0.3; }
+    100% { r: 18; opacity: 0; }
   }
 
   /* Tooltip */
@@ -755,20 +772,47 @@
     sim = d3.forceSimulation(nodes)
       .force('link', d3.forceLink(resolvedEdges)
         .id(function(d) { return d.key; })
-        .distance(65)
-        .strength(0.2))
-      .force('charge', d3.forceManyBody().strength(-50))
-      .force('center', d3.forceCenter(cx, cy).strength(0.02))
-      .alphaDecay(0.02)
-      .velocityDecay(0.5);
+        .distance(80)
+        .strength(0.3))
+      .force('charge', d3.forceManyBody().strength(-80))
+      .force('center', d3.forceCenter(cx, cy).strength(0.05))
+      .force('collision', d3.forceCollide().radius(function(d) { return d.r + 12; }))
+      .alphaDecay(0.03)
+      .velocityDecay(0.6);
 
     // Pre-simulate
     sim.alpha(1).restart();
     for (var i = 0; i < 500; i++) sim.tick();
     sim.stop();
 
+    // Tick handler to update visual positions during drag
+    sim.on('tick', function() {
+      // Update links
+      link
+        .attr('x1', function(d) { return d.source.x; })
+        .attr('y1', function(d) { return d.source.y; })
+        .attr('x2', function(d) { return d.target.x; })
+        .attr('y2', function(d) { return d.target.y; });
+
+      // Update nodes
+      nodeGroup.attr('transform', function(d) {
+        return 'translate(' + d.x + ',' + d.y + ')';
+      });
+
+      // Update labels using stored relative offset
+      nodeGroup.select('.node-label')
+        .attr('x', function(d) { return d._lox; })
+        .attr('y', function(d) { return d._loy; });
+    });
+
     // Place labels
     placeLabels(nodes);
+
+    // Store relative label offsets (so they follow the node during drag)
+    nodes.forEach(function(n) {
+      n._lox = n.labelX - n.x;
+      n._loy = n.labelY - n.y;
+    });
 
     // === RENDER LINKS ===
     link = g.append('g')
@@ -792,6 +836,11 @@
       .attr('transform', function(d) {
         return 'translate(' + d.x + ',' + d.y + ')';
       });
+
+    // Subtle glow behind each node
+    nodeGroup.append('circle')
+      .attr('class', 'node-glow')
+      .attr('r', function(d) { return d.r + 3; });
 
     // Dark gray nodes (Obsidian style)
     nodeGroup.append('circle')
@@ -832,6 +881,11 @@
           .transition().duration(60)
           .attr('r', d.r + 2)
           .attr('fill', color);
+        d3.select(this).select('.node-glow')
+          .transition().duration(60)
+          .attr('r', d.r + 6)
+          .attr('fill', color)
+          .attr('opacity', 0.25);
         d3.select(this).select('.node-label')
           .transition().duration(60)
           .attr('fill', color);
@@ -855,6 +909,11 @@
           .transition().duration(100)
           .attr('r', function(d) { return d.r; })
           .attr('fill', 'var(--node-fill)');
+        nodeGroup.select('.node-glow')
+          .transition().duration(100)
+          .attr('r', function(d) { return d.r + 3; })
+          .attr('fill', 'var(--node-fill)')
+          .attr('opacity', 0.15);
         nodeGroup.select('.node-label')
           .transition().duration(100)
           .attr('fill', 'var(--text-primary)');
