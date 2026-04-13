@@ -154,6 +154,10 @@ class KBHandler(SimpleHTTPRequestHandler):
             self.serve_graph()
         elif path == "/graph" or path == "/graph.html":
             self.serve_graph_page()
+        elif path == "/raw" or path == "/raw.html":
+            self.serve_raw_browser()
+        elif path.startswith("/raw-file/"):
+            self.serve_raw_file(path[len("/raw-file/"):])
         else:
             super().do_GET()
 
@@ -248,6 +252,22 @@ class KBHandler(SimpleHTTPRequestHandler):
             return
         self._serve_file(graph_path, "text/html; charset=utf-8")
 
+    def serve_raw_browser(self):
+        """Serve the raw file browser HTML page."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        html = self._generate_raw_browser_html()
+        self.wfile.write(html.encode("utf-8"))
+
+    def serve_raw_file(self, rel_path):
+        """Serve a raw file as markdown for Docsify-like rendering."""
+        file_path = KB_ROOT / "raw" / rel_path
+        if not file_path.exists():
+            self.send_error(404, f"Raw file not found: {rel_path}")
+            return
+        self._serve_file(file_path, "text/markdown; charset=utf-8")
+
     def serve_graph(self):
         """JSON API: return graph data (nodes + edges) for relationship graph."""
         pages = build_index()
@@ -326,6 +346,135 @@ class KBHandler(SimpleHTTPRequestHandler):
         self.send_header("Pragma", "no-cache")
         self.end_headers()
         self.wfile.write(text)
+
+    def _generate_raw_browser_html(self):
+        """Generate an Obsidian-style raw file browser page."""
+        raw_dir = KB_ROOT / "raw"
+        if not raw_dir.exists():
+            return "<p>raw/ directory not found</p>"
+
+        # Scan categories and files
+        categories = {}
+        for item in sorted(raw_dir.iterdir()):
+            if item.is_dir():
+                files = sorted([f.name for f in item.iterdir() if f.suffix == ".md"])
+                if files:
+                    categories[item.name] = files
+            elif item.suffix == ".md":
+                categories.setdefault("_root", []).append(item.name)
+
+        # Build HTML
+        html = """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原始文件浏览</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #ffffff; --bg-sidebar: #fafafa; --bg-hover: #eee; --bg-active: #e8e8e8;
+    --text: #2c2c2c; --text-secondary: #6b6b6b; --text-muted: #999;
+    --border: #e8e8e8; --accent: #7c5cfc;
+  }
+  body { font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; display: flex; }
+  .sidebar { width: 260px; min-width: 260px; height: 100vh; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+  .sidebar-header { padding: 12px 16px; border-bottom: 1px solid var(--border); min-height: 48px; display: flex; align-items: center; gap: 8px; }
+  .sidebar-header span { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+  .sidebar-tree { flex: 1; overflow-y: auto; padding: 8px 0; }
+  .sidebar-tree::-webkit-scrollbar { width: 4px; }
+  .sidebar-tree::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+  .cat-header { display: flex; align-items: center; padding: 4px 12px; cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text-secondary); gap: 4px; user-select: none; }
+  .cat-header:hover { background: var(--bg-hover); }
+  .cat-chevron { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; transition: transform 0.15s; flex-shrink: 0; }
+  .cat-chevron.open { transform: rotate(90deg); }
+  .cat-chevron svg { width: 10px; height: 10px; fill: var(--text-muted); }
+  .cat-files { overflow: hidden; max-height: 0; transition: max-height 0.2s; }
+  .cat-files.open { max-height: 2000px; }
+  .file-item { padding: 3px 12px 3px 32px; font-size: 11.5px; color: var(--text-secondary); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-item:hover { background: var(--bg-hover); color: var(--text); }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .toolbar { height: 48px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid var(--border); }
+  .toolbar-btn { width: 30px; height: 30px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .toolbar-btn:hover { background: var(--bg-hover); }
+  .toolbar-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .toolbar-title { flex: 1; text-align: center; font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+  .content { flex: 1; overflow-y: auto; padding: 24px 32px; }
+  .content::-webkit-scrollbar { width: 6px; }
+  .content::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+  .file-content { max-width: 800px; margin: 0 auto; }
+  .file-content h1 { font-size: 22px; font-weight: 600; margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .file-content h2 { font-size: 18px; font-weight: 600; margin: 20px 0 10px; }
+  .file-content h3 { font-size: 15px; font-weight: 600; margin: 16px 0 8px; }
+  .file-content h4 { font-size: 14px; font-weight: 600; margin: 12px 0 6px; }
+  .file-content p { margin: 8px 0; line-height: 1.7; }
+  .file-content ul, .file-content ol { margin: 8px 0; padding-left: 24px; }
+  .file-content li { margin: 4px 0; line-height: 1.6; }
+  .file-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .file-content code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 13px; font-family: 'Menlo', 'Monaco', 'Courier New', monospace; }
+  .file-content pre { background: #f6f6f6; padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; }
+  .file-content pre code { background: none; padding: 0; font-size: 13px; line-height: 1.6; }
+  .file-content blockquote { border-left: 3px solid #ddd; padding-left: 14px; margin: 12px 0; color: var(--text-secondary); }
+  .file-content table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+  .file-content th, .file-content td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+  .file-content th { background: #f8f8f8; font-weight: 600; }
+  .file-content a { color: var(--accent); text-decoration: none; }
+  .file-content a:hover { text-decoration: underline; }
+  .file-content img { max-width: 100%; border-radius: 8px; margin: 12px 0; }
+  .placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo" style="width:18px;height:18px;background:var(--accent);border-radius:4px;display:flex;align-items:center;justify-content:center;">
+      <svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+    </div>
+    <span>raw/ 源文件</span>
+  </div>
+  <div class="sidebar-tree">"""
+
+        for cat_name in sorted(categories.keys()):
+            display_name = CATEGORY_NAMES.get(cat_name, cat_name)
+            files = categories[cat_name]
+            html += f'<div class="tree-cat"><div class="cat-header" onclick="this.nextElementSibling.classList.toggle(\'open\');this.querySelector(\'.cat-chevron\').classList.toggle(\'open\');"><span class="cat-chevron open"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span><span>{display_name}</span><span style="margin-left:auto;font-size:10px;color:var(--text-muted)">{len(files)}</span></div>'
+            html += '<div class="cat-files open">'
+            for fname in files:
+                file_path = f"{cat_name}/{fname}" if cat_name != "_root" else fname
+                html += f'<div class="file-item" onclick="loadFile(\'{file_path}\')" title="{fname}">{fname}</div>'
+            html += '</div></div>'
+
+        html += """</div>
+</aside>
+<div class="main">
+  <div class="toolbar">
+    <button class="toolbar-btn" onclick="history.back()" title="Back"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <div class="toolbar-title">原始文件浏览</div>
+  </div>
+  <div class="content" id="content"><div class="placeholder">选择一个文件查看内容</div></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/marked@11/lib/marked.umd.min.js"></script>
+<script>
+function loadFile(path) {
+  var el = document.getElementById('content');
+  el.innerHTML = '<div class="placeholder">加载中...</div>';
+  fetch('/raw-file/' + path).then(function(r) {
+    if (!r.ok) throw new Error('Not found');
+    return r.text();
+  }).then(function(text) {
+    // Strip frontmatter
+    var m = text.match(/^---\\n[\\s\\S]*?\\n---\\n([\\s\\S]*)/);
+    var body = m ? m[1] : text;
+    el.innerHTML = '<div class="file-content">' + marked.parse(body) + '</div>';
+  }).catch(function() {
+    el.innerHTML = '<div class="placeholder">文件加载失败</div>';
+  });
+}
+</script>
+</body>
+</html>"""
+        return html
 
     def log_message(self, format, *args):
         sys.stderr.write(f"[KB] {args[0]}\n")

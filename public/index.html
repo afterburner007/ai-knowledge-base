@@ -6,6 +6,9 @@
 <title>AI 知识库</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <link rel="stylesheet" href="docsify-theme.css">
+<style>
+.markdown-section { max-width: 800px; margin: 0 auto; padding: 30px 20px; }
+</style>
 </head>
 <body>
 <div id="app">加载中...</div>
@@ -304,12 +307,12 @@ window.$docsify = {
 <script>
 // Graph navigation button injection
 (function() {
-  var btnHtml = '<a href="/graph" target="_blank" id="graph-nav-btn" style="display:flex;align-items:center;gap:6px;padding:6px 10px;margin:8px 4px;background:rgba(91,106,191,0.08);color:#5b6abf;border-radius:6px;font-size:13px;font-weight:500;text-decoration:none;border:1px solid #e2e4e8;cursor:pointer;">\uD83D\uDD78\uFE0F 关系图谱</a>';
+  var btnHtml = '<div id="nav-btns" style="margin-bottom:8px;"><a href="/graph" target="_blank" id="graph-nav-btn" style="display:flex;align-items:center;gap:6px;padding:6px 10px;margin:4px;background:rgba(91,106,191,0.08);color:#5b6abf;border-radius:6px;font-size:13px;font-weight:500;text-decoration:none;border:1px solid #e2e4e8;cursor:pointer;">\uD83D\uDD78\uFE0F 关系图谱</a><a href="/raw" target="_blank" id="raw-nav-btn" style="display:flex;align-items:center;gap:6px;padding:6px 10px;margin:4px;background:rgba(91,106,191,0.08);color:#5b6abf;border-radius:6px;font-size:13px;font-weight:500;text-decoration:none;border:1px solid #e2e4e8;cursor:pointer;">\uD83D\uDCC4 原始文件</a></div>';
 
   function injectBtn() {
     var sidebar = document.querySelector('.sidebar-nav');
     if (!sidebar) return;
-    if (document.getElementById('graph-nav-btn')) return;
+    if (document.getElementById('nav-btns')) return;
     var div = document.createElement('div');
     div.innerHTML = btnHtml;
     sidebar.insertBefore(div.firstChild, sidebar.firstChild);
