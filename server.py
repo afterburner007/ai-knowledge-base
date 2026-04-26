@@ -78,7 +78,7 @@ def verify_token(token: str) -> dict | None:
         return None
 
 
-# User database: {phone_number: {"password_hash": "...", "username": "..."}}
+# User database: {phone_number: {"password_hash": "sha256:salt:hash"}}
 # Password for 18352869670 is "yuange666"
 USERS = {
     "18352869670": {
