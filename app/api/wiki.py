@@ -86,7 +86,7 @@ async def sidebar():
         cat = info["category"]
         categories.setdefault(cat, []).append(info)
 
-    lines = [""]
+    lines = ["", "* **<a href='/api/upload' target='_blank'>📝 上传文件</a>**", ""]
     for cat_key in sorted(categories.keys()):
         cat_name = CATEGORY_NAMES.get(cat_key, cat_key.upper())
         lines.append(f"* **{cat_name}**")
@@ -105,6 +105,10 @@ async def readme():
     text = f"""# AI 知识库
 
 > 自动驾驶标定与感知知识管理系统
+
+## 快捷操作
+
+[📝 上传文件 / 新建文档](/api/upload) — 上传 raw md 文件，自动调用 LLM 分析生成 wiki 页面
 
 ## 导航
 

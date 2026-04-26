@@ -45,12 +45,11 @@ def verify_token(token: str) -> dict | None:
 
 
 # Routes that don't require authentication
+# Everything else requires login
 PUBLIC_PATHS = {
-    "/", "/login", "/login.html", "/favicon.ico", "/robots.txt",
-    "/api/auth/login", "/api/auth/verify",
-    "/api/index", "/api/graph", "/api/wiki-path-map",
-    "/docsify-theme.css",
-    "/README.md", "/_sidebar.md",
+    "/login", "/login.html",
+    "/api/auth/login",
+    "/favicon.ico",
 }
 
 
