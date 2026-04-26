@@ -194,6 +194,13 @@ class KBHandler(SimpleHTTPRequestHandler):
             self.serve_login_page()
             return
 
+        # Common browser requests (no auth needed)
+        if path in ("/favicon.ico", "/robots.txt"):
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+
         # All other routes require authentication
         if not self._require_auth():
             return
@@ -619,7 +626,7 @@ function loadFile(path, el) {
         token = generate_token(username)
         self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Set-Cookie", f"kb_token={token}; Path=/; HttpOnly; Max-Age={TOKEN_EXPIRY}")
+        self.send_header("Set-Cookie", f"kb_token={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={TOKEN_EXPIRY}")
         body = json.dumps({
             "success": True,
             "message": "登录成功",
@@ -672,7 +679,8 @@ function loadFile(path, el) {
 
     def _handle_unauthorized(self):
         """Redirect to login page for HTML requests, or return 401 for API requests."""
-        path = self.path.split("?")[0]
+        path = unquote(unquote(self.path))
+        path = path.split("?")[0]
         if path.startswith("/api/"):
             self._send_json({"success": False, "message": "未提供认证令牌或令牌已过期"}, 401)
         else:
