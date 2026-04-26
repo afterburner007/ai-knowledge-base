@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 — AI 知识库</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-sans: "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-sans); overflow: hidden; height: 100vh; }
+
+.login-container { display: flex; width: 100vw; height: 100vh; }
+
+/* Left brand panel */
+.brand-section {
+  flex: 0 0 60%;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.brand-section::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 20% 80%, rgba(91,106,191,0.2) 0%, transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(139,92,246,0.15) 0%, transparent 50%);
+  pointer-events: none;
+}
+.brand-content { position: relative; z-index: 1; padding: 4rem; color: white; }
+.logo-icon {
+  width: 80px; height: 80px; margin: 0 auto 1.5rem;
+  background: linear-gradient(135deg, #5b6abf 0%, #8b5cf6 100%);
+  border-radius: 18px; display: flex; align-items: center; justify-content: center;
+  font-size: 2rem; font-weight: 700;
+  box-shadow: 0 10px 40px rgba(91,106,191,0.4);
+}
+.brand-title {
+  font-size: 2.25rem; font-weight: 700; text-align: center; margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #a5b4fc 0%, #c4b5fd 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.brand-subtitle { text-align: center; font-size: 1rem; color: #94a3b8; margin-bottom: 3rem; }
+.feature-item {
+  display: flex; align-items: flex-start; gap: 1rem; padding: 1.25rem 1.5rem;
+  background: rgba(255,255,255,0.05); border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1); margin-bottom: 1.25rem;
+  transition: all 0.3s ease;
+}
+.feature-item:hover { background: rgba(255,255,255,0.08); transform: translateX(6px); }
+.feature-icon { font-size: 1.5rem; flex-shrink: 0; }
+.feature-text h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; }
+.feature-text p { font-size: 0.85rem; color: #94a3b8; }
+
+/* Right form panel */
+.form-section {
+  flex: 0 0 40%; background: #f8fafc;
+  display: flex; align-items: center; justify-content: center;
+}
+.form-wrapper { width: 100%; max-width: 400px; padding: 3rem; }
+.form-header { margin-bottom: 2rem; }
+.form-title { font-size: 1.75rem; font-weight: 700; color: #1e293b; margin-bottom: 0.5rem; }
+.form-subtitle { font-size: 0.95rem; color: #64748b; }
+
+.input-group { margin-bottom: 1.25rem; }
+.input-group label { display: block; font-size: 0.85rem; font-weight: 500; color: #475569; margin-bottom: 0.4rem; }
+.input-group input {
+  width: 100%; padding: 0.85rem 1rem; border: 1px solid #e2e8f0;
+  border-radius: 8px; font-size: 0.95rem; font-family: var(--font-sans);
+  transition: all 0.2s ease; outline: none; background: white;
+}
+.input-group input:focus { border-color: #5b6abf; box-shadow: 0 0 0 3px rgba(91,106,191,0.1); }
+.input-group input.error { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.1); }
+
+.login-btn {
+  width: 100%; padding: 0.85rem; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, #5b6abf 0%, #3d4fa0 100%);
+  color: white; font-size: 1rem; font-weight: 600; font-family: var(--font-sans);
+  cursor: pointer; transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(91,106,191,0.3);
+}
+.login-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(91,106,191,0.4); }
+.login-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.error-msg {
+  display: none; padding: 0.75rem 1rem; background: #fef2f2;
+  border: 1px solid #fecaca; border-radius: 8px;
+  color: #dc2626; font-size: 0.875rem; margin-bottom: 1.25rem;
+}
+.error-msg.visible { display: block; }
+
+@media (max-width: 768px) {
+  .login-container { flex-direction: column; }
+  .brand-section { flex: none; min-height: 35vh; }
+  .brand-content { padding: 2rem 1.5rem; }
+  .feature-item { display: none; }
+  .form-section { flex: 1; }
+  .form-wrapper { padding: 2rem 1.5rem; }
+}
+</style>
+</head>
+<body>
+<div class="login-container">
+  <!-- Left brand panel -->
+  <div class="brand-section">
+    <div class="brand-content">
+      <div class="logo-icon">KB</div>
+      <h1 class="brand-title">AI 知识库</h1>
+      <p class="brand-subtitle">自动驾驶标定与感知知识管理系统</p>
+      <div class="features-list">
+        <div class="feature-item">
+          <span class="feature-icon">📚</span>
+          <div class="feature-text"><h3>结构化知识</h3><p>wiki 页面关联，交叉引用网络</p></div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">🔍</span>
+          <div class="feature-text"><h3>关系图谱</h3><p>可视化知识关联，图谱探索</p></div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">📊</span>
+          <div class="feature-text"><h3>原始文件浏览</h3><p>Obsidian 主题，源文件直接查看</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right form panel -->
+  <div class="form-section">
+    <div class="form-wrapper">
+      <div class="form-header">
+        <h2 class="form-title">登录</h2>
+        <p class="form-subtitle">请输入您的账号信息</p>
+      </div>
+
+      <div class="error-msg" id="errorMsg">账号或密码错误</div>
+
+      <form id="loginForm" onsubmit="return handleLogin(event)">
+        <div class="input-group">
+          <label for="username">手机号</label>
+          <input type="text" id="username" name="username" placeholder="请输入手机号" autocomplete="username" required>
+        </div>
+        <div class="input-group">
+          <label for="password">密码</label>
+          <input type="password" id="password" name="password" placeholder="请输入密码" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="login-btn" id="loginBtn">登录</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function handleLogin(e) {
+  e.preventDefault();
+  var btn = document.getElementById('loginBtn');
+  var errorEl = document.getElementById('errorMsg');
+  var username = document.getElementById('username').value.trim();
+  var password = document.getElementById('password').value;
+
+  errorEl.classList.remove('visible');
+  btn.disabled = true;
+  btn.textContent = '登录中...';
+
+  fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: username, password: password })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      localStorage.setItem('kb_token', data.token);
+      window.location.href = '/';
+    } else {
+      errorEl.textContent = data.message || '账号或密码错误';
+      errorEl.classList.add('visible');
+      btn.disabled = false;
+      btn.textContent = '登录';
+    }
+  })
+  .catch(function() {
+    errorEl.textContent = '登录请求失败，请检查网络';
+    errorEl.classList.add('visible');
+    btn.disabled = false;
+    btn.textContent = '登录';
+  });
+
+  return false;
+}
+
+// If already logged in, redirect to home
+(function() {
+  var token = localStorage.getItem('kb_token');
+  if (token) {
+    fetch('/api/auth/verify', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.valid) { window.location.href = '/'; }
+    })
+    .catch(function() {});
+  }
+})();
+</script>
+</body>
+</html>
