@@ -40,6 +40,7 @@ CATEGORY_NAMES = {
 
 
 # JWT authentication
+# NOTE: Secret is regenerated on server restart — all tokens expire on restart
 JWT_SECRET = secrets.token_hex(32)
 TOKEN_EXPIRY = 24 * 3600  # 24 hours in seconds
 
@@ -79,7 +80,6 @@ def verify_token(token: str) -> dict | None:
 
 
 # User database: {phone_number: {"password_hash": "sha256:salt:hash"}}
-# Password for 18352869670 is "yuange666"
 USERS = {
     "18352869670": {
         "password_hash": hash_password("yuange666"),
