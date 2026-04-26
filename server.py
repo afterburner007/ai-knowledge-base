@@ -2,7 +2,7 @@
 """
 Lightweight HTTP server for the AI Knowledge Base.
 Serves raw markdown files for Docsify client-side rendering.
-No dependencies beyond Python stdlib.
+Requires: pip install -r requirements.txt (PyJWT)
 
 Usage:
     python server.py              # serves on port 8080
@@ -83,7 +83,7 @@ def verify_token(token: str) -> dict | None:
 # User database: {phone_number: {"password_hash": "sha256:salt:hash"}}
 USERS = {
     "18352869670": {
-        "password_hash": hash_password("yuange666"),
+        "password_hash": "sha256:db2fac630139bde79fb4de212a49ff8b:9f2d37aa9d6686e1f313535480dc8a0d050925cd507e044cb4743b81384d76f7",
     }
 }
 
@@ -201,6 +201,11 @@ class KBHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
+        # Static assets required for page rendering (no auth needed)
+        if path.startswith("/docsify-theme.css"):
+            self.serve_theme_css()
+            return
+
         # All other routes require authentication
         if not self._require_auth():
             return
@@ -211,8 +216,6 @@ class KBHandler(SimpleHTTPRequestHandler):
             self.serve_sidebar()
         elif path == "/README.md":
             self.serve_readme()
-        elif path.startswith("/docsify-theme.css"):
-            self.serve_theme_css()
         elif path.startswith("/wiki/"):
             self.serve_wiki_raw(path[len("/wiki/"):])
         elif path == "/api/auth/verify":
