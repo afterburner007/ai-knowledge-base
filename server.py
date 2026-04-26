@@ -189,6 +189,15 @@ class KBHandler(SimpleHTTPRequestHandler):
         if path.startswith("//"):
             path = path[1:]
 
+        # Unprotected routes
+        if path == "/login" or path == "/login.html":
+            self.serve_login_page()
+            return
+
+        # All other routes require authentication
+        if not self._require_auth():
+            return
+
         if path == "/" or path == "/index.html":
             self.serve_docsify_home()
         elif path == "/_sidebar.md":
@@ -207,8 +216,6 @@ class KBHandler(SimpleHTTPRequestHandler):
             self.serve_path_map()
         elif path == "/api/graph":
             self.serve_graph()
-        elif path == "/login" or path == "/login.html":
-            self.serve_login_page()
         elif path == "/graph" or path == "/graph.html":
             self.serve_graph_page()
         elif path == "/raw" or path == "/raw.html":
@@ -610,11 +617,17 @@ function loadFile(path, el) {
             return self._send_json({"success": False, "message": "账号或密码错误"}, 401)
 
         token = generate_token(username)
-        return self._send_json({
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Set-Cookie", f"kb_token={token}; Path=/; HttpOnly; Max-Age={TOKEN_EXPIRY}")
+        body = json.dumps({
             "success": True,
             "message": "登录成功",
             "token": token,
-        })
+        }, ensure_ascii=False).encode("utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def handle_verify(self):
         """GET /api/auth/verify — validate current token."""
@@ -637,10 +650,16 @@ function loadFile(path, el) {
         self._serve_file(login_path, "text/html; charset=utf-8")
 
     def _get_auth_token(self):
-        """Extract Bearer token from Authorization header."""
+        """Extract Bearer token from Authorization header or cookie."""
         auth_header = self.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
             return auth_header[7:]
+        # Fall back to cookie
+        cookie = self.headers.get("Cookie", "")
+        for part in cookie.split(";"):
+            part = part.strip()
+            if part.startswith("kb_token="):
+                return part[len("kb_token="):]
         return None
 
     def _require_auth(self):
