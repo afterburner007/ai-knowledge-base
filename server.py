@@ -710,6 +710,7 @@ def main():
 
     server = HTTPServer((args.host, args.port), KBHandler)
     print(f"AI Knowledge Base running at http://localhost:{args.port}")
+    print(f"Login at http://localhost:{args.port}/login")
     print(f"Accessible on LAN at http://<your-ip>:{args.port}")
     try:
         server.serve_forever()
