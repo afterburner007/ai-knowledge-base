@@ -12,6 +12,7 @@
 </head>
 <body>
 <div id="app">加载中...</div>
+<div id="page-header"></div>
 
 <script>
 // Wiki path mapping — loaded from server
@@ -197,48 +198,87 @@ window.$docsify = {
         return html;
       });
 
-      // After render: inject frontmatter + breadcrumb, fix links, render KaTeX
+      // After render: inject page header, fix links, render KaTeX
       hook.doneEach(function() {
         var section = document.querySelector('.markdown-section');
+        var headerEl = document.getElementById('page-header');
         if (!section) return;
 
-        // Fix sub-TOC links: remove page path from href and intercept clicks to prevent Docsify re-routing
+        var route = location.hash.replace(/^#\//, '') || '';
+
+        // Build sub-TOC from sidebar headings and inject into page-header
+        var subTocHtml = '';
         var subTocLinks = document.querySelectorAll('.sidebar-nav .app-sub-sidebar a');
-        for (var k = 0; k < subTocLinks.length; k++) {
-          var sl = subTocLinks[k];
-          if (sl.dataset.subTocFixed) continue;
-          sl.dataset.subTocFixed = '1';
-          var sHref = sl.getAttribute('href') || '';
-          // Decode href to handle both literal and encoded ?/& characters
-          var decodedHref = decodeURIComponent(sHref);
-          var sIdMatch = decodedHref.match(/[?&]id=([^&]*)/);
-          if (sIdMatch) {
-            var headingId = sIdMatch[1];
-            // Replace href with a scroll-based handler instead of a Docsify route
-            sl.setAttribute('href', '#' + headingId);
-            sl.addEventListener('click', function(ev) {
-              ev.preventDefault();
-              ev.stopPropagation();
-              ev.stopImmediatePropagation();
-              var targetId = decodeURIComponent(this.getAttribute('href').substring(1));
-              var target = document.getElementById(targetId);
-              if (target) {
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-              return false;
-            }, true);
+        if (subTocLinks.length > 0) {
+          subTocHtml = '<div class="ph-subtoc">';
+          for (var k = 0; k < subTocLinks.length; k++) {
+            var sl = subTocLinks[k];
+            var href = sl.getAttribute('href') || '';
+            var text = sl.textContent || '';
+            // Determine depth from list nesting
+            var depth = 1;
+            var parent = sl.parentElement;
+            while (parent && parent.tagName === 'UL') {
+              depth++;
+              parent = parent.parentElement;
+              if (parent && parent.classList.contains('app-sub-sidebar')) break;
+            }
+            var depthClass = depth >= 3 ? 'depth-2' : 'depth-1';
+            // Clean text
+            text = text.replace(/\x01US\x01/g, '_').replace(/\$\$[^$]*\$\$/g, '').replace(/\$[^$]*\$/g, '').replace(/\s+/g, ' ').trim();
+            subTocHtml += '<a href="' + href + '" class="' + depthClass + '">' + text + '</a>';
           }
+          subTocHtml += '</div>';
         }
 
-        // Inject breadcrumb and frontmatter at top (skip for home page)
-        var route = location.hash.replace(/^#\//, '') || '';
-        if (route === '' || route === '/' || route === 'README.md') return;
-        var breadcrumbHtml = renderBreadcrumb(route);
-        var existing = section.querySelector('.frontmatter-panel');
-        if (!existing) {
-          var wrapper = document.createElement('div');
-          wrapper.innerHTML = breadcrumbHtml + currentFmHtml;
-          section.insertBefore(wrapper, section.firstChild);
+        // Populate left page-header (breadcrumb + title + sub-TOC)
+        if (route && route !== '/' && route !== 'README.md') {
+          var parsed = parseFrontmatter(section.textContent || '');
+          var fm = parsed.data;
+          var title = fm.title || '';
+
+          var breadcrumbHtml = renderBreadcrumb(route);
+          var headerHtml = '<div class="ph-breadcrumb">' + breadcrumbHtml + '</div>';
+          if (title) {
+            headerHtml += '<div class="ph-title">' + title + '</div>';
+          }
+          headerHtml += subTocHtml;
+          headerEl.innerHTML = headerHtml;
+          headerEl.classList.add('active');
+
+          // Wire sub-TOC links for smooth scroll
+          var newSubLinks = headerEl.querySelectorAll('.ph-subtoc a');
+          for (var m = 0; m < newSubLinks.length; m++) {
+            (function(link) {
+              var linkHref = link.getAttribute('href') || '';
+              var idMatch = linkHref.match(/[?&]id=([^&]*)/) || linkHref.match(/#(.+)/);
+              if (idMatch) {
+                var headingId = decodeURIComponent(idMatch[1]);
+                link.addEventListener('click', function(ev) {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  var target = document.getElementById(headingId);
+                  if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                  return false;
+                });
+              }
+            })(newSubLinks[m]);
+          }
+        } else {
+          headerEl.innerHTML = '';
+          headerEl.classList.remove('active');
+        }
+
+        // Inject frontmatter panel at top of content (skip for home page)
+        if (route && route !== '/' && route !== 'README.md') {
+          var existing = section.querySelector('.frontmatter-panel');
+          if (!existing && currentFmHtml) {
+            var fmWrapper = document.createElement('div');
+            fmWrapper.innerHTML = currentFmHtml;
+            section.insertBefore(fmWrapper, section.firstChild);
+          }
         }
 
         // Keep the active page's sub-TOC expanded after navigation

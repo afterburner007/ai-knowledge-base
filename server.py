@@ -348,12 +348,11 @@ class KBHandler(SimpleHTTPRequestHandler):
         self.wfile.write(text)
 
     def _generate_raw_browser_html(self):
-        """Generate an Obsidian-style raw file browser page."""
+        """Generate an Obsidian-themed raw file browser page."""
         raw_dir = KB_ROOT / "raw"
         if not raw_dir.exists():
             return "<p>raw/ directory not found</p>"
 
-        # Scan categories and files
         categories = {}
         for item in sorted(raw_dir.iterdir()):
             if item.is_dir():
@@ -363,112 +362,157 @@ class KBHandler(SimpleHTTPRequestHandler):
             elif item.suffix == ".md":
                 categories.setdefault("_root", []).append(item.name)
 
-        # Build HTML
         html = """<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原始文件浏览</title>
+<title>原始文件浏览 — AI 知识库</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap');
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  :root {
-    --bg: #ffffff; --bg-sidebar: #fafafa; --bg-hover: #eee; --bg-active: #e8e8e8;
-    --text: #2c2c2c; --text-secondary: #6b6b6b; --text-muted: #999;
-    --border: #e8e8e8; --accent: #7c5cfc;
-  }
-  body { font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; display: flex; }
-  .sidebar { width: 260px; min-width: 260px; height: 100vh; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
-  .sidebar-header { padding: 12px 16px; border-bottom: 1px solid var(--border); min-height: 48px; display: flex; align-items: center; gap: 8px; }
-  .sidebar-header span { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
-  .sidebar-tree { flex: 1; overflow-y: auto; padding: 8px 0; }
-  .sidebar-tree::-webkit-scrollbar { width: 4px; }
-  .sidebar-tree::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
-  .cat-header { display: flex; align-items: center; padding: 4px 12px; cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text-secondary); gap: 4px; user-select: none; }
-  .cat-header:hover { background: var(--bg-hover); }
-  .cat-chevron { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; transition: transform 0.15s; flex-shrink: 0; }
-  .cat-chevron.open { transform: rotate(90deg); }
-  .cat-chevron svg { width: 10px; height: 10px; fill: var(--text-muted); }
-  .cat-files { overflow: hidden; max-height: 0; transition: max-height 0.2s; }
-  .cat-files.open { max-height: 2000px; }
-  .file-item { padding: 3px 12px 3px 32px; font-size: 11.5px; color: var(--text-secondary); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .file-item:hover { background: var(--bg-hover); color: var(--text); }
-  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-  .toolbar { height: 48px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid var(--border); }
-  .toolbar-btn { width: 30px; height: 30px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
-  .toolbar-btn:hover { background: var(--bg-hover); }
-  .toolbar-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .toolbar-title { flex: 1; text-align: center; font-size: 13px; font-weight: 500; color: var(--text-secondary); }
-  .content { flex: 1; overflow-y: auto; padding: 24px 32px; }
-  .content::-webkit-scrollbar { width: 6px; }
-  .content::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
-  .file-content { max-width: 800px; margin: 0 auto; }
-  .file-content h1 { font-size: 22px; font-weight: 600; margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-  .file-content h2 { font-size: 18px; font-weight: 600; margin: 20px 0 10px; }
-  .file-content h3 { font-size: 15px; font-weight: 600; margin: 16px 0 8px; }
-  .file-content h4 { font-size: 14px; font-weight: 600; margin: 12px 0 6px; }
-  .file-content p { margin: 8px 0; line-height: 1.7; }
-  .file-content ul, .file-content ol { margin: 8px 0; padding-left: 24px; }
-  .file-content li { margin: 4px 0; line-height: 1.6; }
-  .file-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
-  .file-content code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 13px; font-family: 'Menlo', 'Monaco', 'Courier New', monospace; }
-  .file-content pre { background: #f6f6f6; padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; }
-  .file-content pre code { background: none; padding: 0; font-size: 13px; line-height: 1.6; }
-  .file-content blockquote { border-left: 3px solid #ddd; padding-left: 14px; margin: 12px 0; color: var(--text-secondary); }
-  .file-content table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
-  .file-content th, .file-content td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
-  .file-content th { background: #f8f8f8; font-weight: 600; }
-  .file-content a { color: var(--accent); text-decoration: none; }
-  .file-content a:hover { text-decoration: underline; }
-  .file-content img { max-width: 100%; border-radius: 8px; margin: 12px 0; }
-  .placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 13px; }
+:root {
+  --bg-primary: #ffffff; --bg-secondary: #f6f7f8; --bg-tertiary: #ececec;
+  --bg-hover: #e8eaed; --bg-active: #e4e6eb; --bg-code: #f0f2f5;
+  --text-primary: #1a1a1a; --text-secondary: #4a4a4a; --text-tertiary: #6b7280;
+  --text-link: #5b6abf; --text-link-hover: #3d4fa0;
+  --border-color: #e2e4e8; --border-light: #f0f0f0;
+  --accent: #5b6abf; --accent-light: rgba(91,106,191,0.08);
+  --sidebar-width: 260px; --content-max-width: 820px;
+  --font-sans: "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); font-size: 15px; line-height: 1.75; overflow: hidden; height: 100vh; display: flex; -webkit-font-smoothing: antialiased; }
+
+/* Sidebar */
+.sidebar { width: var(--sidebar-width); min-width: var(--sidebar-width); height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; overflow: hidden; }
+.sidebar-header { padding: 1rem 1rem 0.5rem; }
+.sidebar-header a { color: var(--text-primary); font-weight: 600; font-size: 0.95rem; text-decoration: none; }
+.sidebar-tree { flex: 1; overflow-y: auto; padding: 0 0.5rem; }
+.sidebar-tree::-webkit-scrollbar { width: 4px; }
+.sidebar-tree::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+.cat-header { display: flex; align-items: center; padding: 0.8rem 0.5rem 0.3rem; cursor: pointer; font-size: 0.72rem; font-weight: 600; color: var(--text-tertiary); letter-spacing: 0.06em; text-transform: uppercase; gap: 4px; user-select: none; transition: color 0.15s; }
+.cat-header:hover { color: var(--text-primary); }
+.cat-chevron { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; transition: transform 0.15s; flex-shrink: 0; }
+.cat-chevron.open { transform: rotate(90deg); }
+.cat-chevron svg { width: 10px; height: 10px; fill: var(--text-tertiary); }
+.cat-files { overflow: hidden; max-height: 0; transition: max-height 0.2s; }
+.cat-files.open { max-height: 2000px; }
+.file-item { padding: 0.2rem 0.4rem; font-size: 13px; color: var(--text-secondary); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 4px; margin-left: 0.6rem; transition: all 0.1s; }
+.file-item:hover { color: var(--text-primary); background: var(--bg-hover); }
+.file-item.active { color: var(--text-primary); background: var(--bg-active); font-weight: 500; }
+
+/* Main area */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+/* Page header (left side, like wiki) */
+.page-header { position: absolute; top: 0; left: 0; width: 140px; padding: 1.5rem 1rem 1.5rem 1.2rem; z-index: 5; display: none; flex-direction: column; }
+.page-header.active { display: flex; }
+.ph-breadcrumb { display: flex; align-items: center; gap: 0.25rem; font-size: 11px; color: var(--text-tertiary); margin-bottom: 0.6rem; }
+.ph-breadcrumb a { color: var(--text-tertiary); text-decoration: none; }
+.ph-breadcrumb a:hover { color: var(--accent); }
+.ph-breadcrumb .sep { color: var(--border-color); }
+.ph-title { font-size: 1.15rem; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+
+/* Content */
+.content { flex: 1; overflow-y: auto; padding: 1.5rem 2.5rem 3rem 2.5rem; }
+.content::-webkit-scrollbar { width: 6px; }
+.content::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+.file-content { max-width: var(--content-max-width); margin: 0 auto; }
+
+/* Markdown styles (matching wiki theme) */
+.file-content h1 { display: none; }
+.file-content h2 { font-size: 1.25rem; font-weight: 600; margin: 2rem 0 0.8rem; color: var(--text-primary); }
+.file-content h3 { font-size: 1.05rem; font-weight: 600; margin: 1.5rem 0 0.6rem; color: var(--text-primary); }
+.file-content h4 { font-size: 0.95rem; font-weight: 600; margin: 1.2rem 0 0.5rem; color: var(--text-primary); }
+.file-content p { margin: 0.6rem 0; color: var(--text-primary); }
+.file-content ul, .file-content ol { margin: 0.5rem 0; padding-left: 1.5rem; }
+.file-content li { margin: 0.2rem 0; color: var(--text-primary); }
+.file-content li::marker { color: var(--text-tertiary); }
+.file-content hr { border: none; height: 1px; background: var(--border-color); margin: 2rem 0; }
+.file-content code { background: var(--bg-code); border: 1px solid var(--border-light); color: #d6336c; font-family: var(--font-mono); font-size: 0.85em; padding: 0.1rem 0.35rem; border-radius: 4px; }
+.file-content pre { background: var(--bg-secondary); border: 1px solid var(--border-color); border-left: 3px solid var(--accent); padding: 1rem 1.2rem; margin: 1rem 0; border-radius: 6px; position: relative; overflow-x: auto; }
+.file-content pre code { background: none; border: none; padding: 0; font-size: 0.85rem; line-height: 1.6; color: var(--text-primary); }
+.file-content blockquote { border-left: 3px solid var(--accent); padding: 0.6rem 1rem; margin: 1rem 0; color: var(--text-secondary); background: var(--accent-light); border-radius: 0 4px 4px 0; }
+.file-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+.file-content th, .file-content td { padding: 0.5rem 0.8rem; border: 1px solid var(--border-color); text-align: left; }
+.file-content th { background: var(--bg-secondary); color: var(--text-primary); font-weight: 600; font-size: 0.82rem; }
+.file-content a { color: var(--text-link); text-decoration: none; }
+.file-content a:hover { color: var(--text-link-hover); }
+.file-content img { max-width: 100%; border: 1px solid var(--border-color); border-radius: 6px; margin: 1rem 0; }
+
+.placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-tertiary); font-size: 13px; }
+.back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--text-tertiary); text-decoration: none; font-size: 13px; padding: 4px 8px; border-radius: 4px; margin-bottom: 8px; }
+.back-link:hover { color: var(--text-primary); background: var(--bg-hover); }
 </style>
 </head>
 <body>
 <aside class="sidebar">
-  <div class="sidebar-header">
-    <div class="logo" style="width:18px;height:18px;background:var(--accent);border-radius:4px;display:flex;align-items:center;justify-content:center;">
-      <svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
-    </div>
-    <span>raw/ 源文件</span>
-  </div>
+  <div class="sidebar-header"><a href="/">AI 知识库</a></div>
   <div class="sidebar-tree">"""
 
         for cat_name in sorted(categories.keys()):
             display_name = CATEGORY_NAMES.get(cat_name, cat_name)
             files = categories[cat_name]
-            html += f'<div class="tree-cat"><div class="cat-header" onclick="this.nextElementSibling.classList.toggle(\'open\');this.querySelector(\'.cat-chevron\').classList.toggle(\'open\');"><span class="cat-chevron open"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span><span>{display_name}</span><span style="margin-left:auto;font-size:10px;color:var(--text-muted)">{len(files)}</span></div>'
+            html += f'<div class="tree-cat"><div class="cat-header" onclick="this.nextElementSibling.classList.toggle(\'open\');this.querySelector(\'.cat-chevron\').classList.toggle(\'open\');"><span class="cat-chevron open"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span><span>{display_name}</span><span style="margin-left:auto;font-size:10px;color:var(--text-tertiary)">{len(files)}</span></div>'
             html += '<div class="cat-files open">'
             for fname in files:
                 file_path = f"{cat_name}/{fname}" if cat_name != "_root" else fname
-                html += f'<div class="file-item" onclick="loadFile(\'{file_path}\')" title="{fname}">{fname}</div>'
+                html += f'<div class="file-item" data-path="{file_path}" onclick="loadFile(\'{file_path}\',this)" title="{fname}">{fname}</div>'
             html += '</div></div>'
 
         html += """</div>
 </aside>
 <div class="main">
-  <div class="toolbar">
-    <button class="toolbar-btn" onclick="history.back()" title="Back"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <div class="toolbar-title">原始文件浏览</div>
-  </div>
+  <div class="page-header" id="pageHeader"></div>
   <div class="content" id="content"><div class="placeholder">选择一个文件查看内容</div></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/marked@11/lib/marked.umd.min.js"></script>
 <script>
-function loadFile(path) {
-  var el = document.getElementById('content');
-  el.innerHTML = '<div class="placeholder">加载中...</div>';
+function loadFile(path, el) {
+  // Highlight active file
+  document.querySelectorAll('.file-item').forEach(function(i) { i.classList.remove('active'); });
+  if (el) el.classList.add('active');
+
+  var contentEl = document.getElementById('content');
+  var headerEl = document.getElementById('pageHeader');
+  contentEl.innerHTML = '<div class="placeholder">加载中...</div>';
+
   fetch('/raw-file/' + path).then(function(r) {
     if (!r.ok) throw new Error('Not found');
     return r.text();
   }).then(function(text) {
-    // Strip frontmatter
-    var m = text.match(/^---\\n[\\s\\S]*?\\n---\\n([\\s\\S]*)/);
-    var body = m ? m[1] : text;
-    el.innerHTML = '<div class="file-content">' + marked.parse(body) + '</div>';
+    // Parse frontmatter for title
+    var title = '';
+    var body = text;
+    var m = text.match(/^---\\n([\\s\\S]*?)\\n---\\n([\\s\\S]*)/);
+    if (m) {
+      var fmLines = m[1].split('\\n');
+      for (var i = 0; i < fmLines.length; i++) {
+        var ci = fmLines[i].indexOf(':');
+        if (ci > 0 && fmLines[i].substring(0, ci).trim() === 'title') {
+          title = fmLines[i].substring(ci + 1).trim();
+        }
+      }
+      body = m[2];
+    }
+
+    // Set page header
+    var parts = path.split('/');
+    var breadcrumbHtml = '<a href="/">wiki</a>';
+    for (var j = 0; j < parts.length; j++) {
+      breadcrumbHtml += '<span class="sep">/</span><span>' + parts[j].replace(/\\.md$/, '') + '</span>';
+    }
+    var headerHtml = '<div class="ph-breadcrumb">' + breadcrumbHtml + '</div>';
+    if (title) headerHtml += '<div class="ph-title">' + title + '</div>';
+    headerEl.innerHTML = headerHtml;
+    headerEl.classList.add('active');
+
+    contentEl.innerHTML = '<div class="file-content">' + marked.parse(body) + '</div>';
   }).catch(function() {
-    el.innerHTML = '<div class="placeholder">文件加载失败</div>';
+    contentEl.innerHTML = '<div class="placeholder">文件加载失败</div>';
+    headerEl.innerHTML = '';
+    headerEl.classList.remove('active');
   });
 }
 </script>
