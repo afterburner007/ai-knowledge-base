@@ -70,8 +70,6 @@ body { font-family: var(--font-sans); overflow: hidden; height: 100vh; }
   transition: all 0.2s ease; outline: none; background: white;
 }
 .input-group input:focus { border-color: #5b6abf; box-shadow: 0 0 0 3px rgba(91,106,191,0.1); }
-.input-group input.error { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.1); }
-
 .login-btn {
   width: 100%; padding: 0.85rem; border: none; border-radius: 8px;
   background: linear-gradient(135deg, #5b6abf 0%, #3d4fa0 100%);
@@ -80,6 +78,10 @@ body { font-family: var(--font-sans); overflow: hidden; height: 100vh; }
   box-shadow: 0 4px 12px rgba(91,106,191,0.3);
 }
 .login-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(91,106,191,0.4); }
+.login-btn:focus-visible {
+  outline: 2px solid #5b6abf;
+  outline-offset: 2px;
+}
 .login-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
 .error-msg {
@@ -132,12 +134,12 @@ body { font-family: var(--font-sans); overflow: hidden; height: 100vh; }
         <p class="form-subtitle">请输入您的账号信息</p>
       </div>
 
-      <div class="error-msg" id="errorMsg">账号或密码错误</div>
+      <div class="error-msg" id="errorMsg" role="alert" aria-live="polite">账号或密码错误</div>
 
       <form id="loginForm" onsubmit="return handleLogin(event)">
         <div class="input-group">
           <label for="username">手机号</label>
-          <input type="text" id="username" name="username" placeholder="请输入手机号" autocomplete="username" required>
+          <input type="tel" id="username" name="username" placeholder="请输入手机号" inputmode="numeric" pattern="[0-9]*" autocomplete="username" required>
         </div>
         <div class="input-group">
           <label for="password">密码</label>
@@ -174,6 +176,7 @@ function handleLogin(e) {
     } else {
       errorEl.textContent = data.message || '账号或密码错误';
       errorEl.classList.add('visible');
+      document.getElementById('password').value = '';
       btn.disabled = false;
       btn.textContent = '登录';
     }
@@ -181,6 +184,7 @@ function handleLogin(e) {
   .catch(function() {
     errorEl.textContent = '登录请求失败，请检查网络';
     errorEl.classList.add('visible');
+    document.getElementById('password').value = '';
     btn.disabled = false;
     btn.textContent = '登录';
   });
@@ -199,7 +203,9 @@ function handleLogin(e) {
     .then(function(data) {
       if (data.valid) { window.location.href = '/'; }
     })
-    .catch(function() {});
+    .catch(function(err) {
+      localStorage.removeItem('kb_token');
+    });
   }
 })();
 </script>
