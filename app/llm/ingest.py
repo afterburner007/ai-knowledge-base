@@ -77,7 +77,7 @@ async def run_ingest(task_id: str, raw_rel_path: str):
 
         response = await call_llm([
             {"role": "user", "content": prompt}
-        ])
+        ], timeout=180.0)
 
         # 4. Parse LLM response
         result = extract_json_from_response(response)
