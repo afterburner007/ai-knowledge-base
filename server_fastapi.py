@@ -4,8 +4,8 @@ FastAPI server for the AI Knowledge Base.
 Replaces server.py with async support, file upload, and LLM ingest.
 
 Usage:
-    python server_fastapi.py              # serves on port 8080
-    python server_fastapi.py --port 9000  # serves on port 9000
+    python3 server_fastapi.py              # serves on port 8080
+    python3 server_fastapi.py --port 9000  # serves on port 9000
 """
 import argparse
 import sys

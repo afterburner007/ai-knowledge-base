@@ -50,6 +50,7 @@ PUBLIC_PATHS = {
     "/api/auth/login", "/api/auth/verify",
     "/api/index", "/api/graph", "/api/wiki-path-map",
     "/docsify-theme.css",
+    "/README.md", "/_sidebar.md",
 }
 
 
