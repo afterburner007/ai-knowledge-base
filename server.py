@@ -15,6 +15,10 @@ import sys
 import re
 import json
 import argparse
+import jwt
+import hashlib
+import secrets
+import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import unquote
@@ -32,6 +36,54 @@ CATEGORY_NAMES = {
     "fusion": "传感器融合",
     "platform": "嵌入式平台",
     "tools": "工具与优化",
+}
+
+
+# JWT authentication
+JWT_SECRET = secrets.token_hex(32)
+TOKEN_EXPIRY = 24 * 3600  # 24 hours in seconds
+
+
+def hash_password(password: str) -> str:
+    """Hash password with random salt using SHA-256."""
+    salt = secrets.token_hex(16)
+    pwd_hash = hashlib.sha256((salt + password).encode()).hexdigest()
+    return f"sha256:{salt}:{pwd_hash}"
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    """Verify password against stored hash."""
+    parts = stored_hash.split(":")
+    if len(parts) != 3 or parts[0] != "sha256":
+        return False
+    salt = parts[1]
+    pwd_hash = hashlib.sha256((salt + password).encode()).hexdigest()
+    return pwd_hash == parts[2]
+
+
+def generate_token(username: str) -> str:
+    """Generate JWT token for authenticated user."""
+    payload = {
+        "sub": username,
+        "exp": int(time.time()) + TOKEN_EXPIRY,
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
+
+def verify_token(token: str) -> dict | None:
+    """Verify and decode JWT token. Returns payload or None."""
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        return None
+
+
+# User database: {phone_number: {"password_hash": "...", "username": "..."}}
+# Password for 18352869670 is "yuange666"
+USERS = {
+    "18352869670": {
+        "password_hash": hash_password("yuange666"),
+    }
 }
 
 
