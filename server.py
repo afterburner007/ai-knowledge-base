@@ -15,6 +15,7 @@ import sys
 import re
 import json
 import argparse
+import hmac
 import jwt
 import hashlib
 import secrets
@@ -59,7 +60,7 @@ def verify_password(password: str, stored_hash: str) -> bool:
         return False
     salt = parts[1]
     pwd_hash = hashlib.sha256((salt + password).encode()).hexdigest()
-    return pwd_hash == parts[2]
+    return hmac.compare_digest(pwd_hash, parts[2])
 
 
 def generate_token(username: str) -> str:
@@ -578,7 +579,8 @@ function loadFile(path, el) {
 
     def do_POST(self):
         """Handle POST requests — auth endpoints."""
-        path = self.path.split("?")[0]
+        path = unquote(unquote(self.path))
+        path = path.split("?")[0]
         if path.startswith("//"):
             path = path[1:]
 
@@ -644,16 +646,12 @@ function loadFile(path, el) {
     def _require_auth(self):
         """Check authentication. Returns True if valid, sends redirect/401 if not."""
         token = self._get_auth_token()
-        if not token:
-            self._redirect_to_login()
-            return False
-        payload = verify_token(token)
-        if not payload:
-            self._redirect_to_login()
+        if not token or not verify_token(token):
+            self._handle_unauthorized()
             return False
         return True
 
-    def _redirect_to_login(self):
+    def _handle_unauthorized(self):
         """Redirect to login page for HTML requests, or return 401 for API requests."""
         path = self.path.split("?")[0]
         if path.startswith("/api/"):
