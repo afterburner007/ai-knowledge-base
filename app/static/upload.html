@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>上传文件 — AI 知识库</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root { --bg:#fff; --bg-secondary:#f6f7f8; --bg-hover:#e8eaed; --text-primary:#1a1a1a; --text-secondary:#4a4a4a; --text-tertiary:#6b7280; --accent:#5b6abf; --accent-light:rgba(91,106,191,.08); --border:#e2e4e8; --font-sans:"Noto Sans SC",-apple-system,BlinkMacSystemFont,sans-serif; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:var(--font-sans); background:var(--bg); color:var(--text-primary); min-height:100vh; }
+.nav { background:var(--bg-secondary); border-bottom:1px solid var(--border); padding:1rem 2rem; display:flex; align-items:center; gap:1rem; }
+.nav a { color:var(--text-primary); text-decoration:none; font-weight:600; }
+.nav a:hover { color:var(--accent); }
+.nav .sep { color:var(--border); }
+.container { max-width:900px; margin:2rem auto; padding:0 1.5rem; }
+h1 { font-size:1.5rem; font-weight:700; margin-bottom:1.5rem; }
+h2 { font-size:1.15rem; font-weight:600; margin:2rem 0 1rem; color:var(--text-primary); }
+.card { background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; padding:1.5rem; margin-bottom:1.5rem; }
+.drop-zone { border:2px dashed var(--border); border-radius:8px; padding:2rem; text-align:center; cursor:pointer; transition:all .2s; }
+.drop-zone:hover, .drop-zone.drag-over { border-color:var(--accent); background:var(--accent-light); }
+.drop-zone p { color:var(--text-secondary); margin-top:.5rem; font-size:14px; }
+.drop-zone .icon { font-size:2rem; color:var(--text-tertiary); }
+.file-list { margin-top:1rem; }
+.file-item { display:flex; align-items:center; justify-content:space-between; padding:.5rem .75rem; background:var(--bg); border-radius:4px; margin-bottom:.5rem; font-size:14px; }
+.file-item .status { font-size:12px; color:var(--text-tertiary); }
+.file-item .status.success { color:#16a34a; }
+.file-item .status.error { color:#dc2626; }
+.file-item .status.processing { color:var(--accent); }
+textarea { width:100%; min-height:200px; padding:.75rem; border:1px solid var(--border); border-radius:6px; font-family:monospace; font-size:14px; resize:vertical; background:var(--bg); color:var(--text-primary); }
+input[type="text"] { width:100%; padding:.5rem .75rem; border:1px solid var(--border); border-radius:6px; font-size:14px; background:var(--bg); color:var(--text-primary); }
+label { display:block; font-size:13px; font-weight:500; color:var(--text-secondary); margin-bottom:.25rem; }
+.form-group { margin-bottom:1rem; }
+.btn { display:inline-flex; align-items:center; gap:.5rem; padding:.5rem 1rem; border:none; border-radius:6px; font-size:14px; font-weight:500; cursor:pointer; transition:all .15s; }
+.btn-primary { background:var(--accent); color:#fff; }
+.btn-primary:hover { opacity:.9; }
+.btn:disabled { opacity:.5; cursor:not-allowed; }
+.tabs { display:flex; gap:0; margin-bottom:1.5rem; border-bottom:2px solid var(--border); }
+.tab { padding:.75rem 1.5rem; cursor:pointer; font-size:14px; font-weight:500; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all .15s; }
+.tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.tab:hover { color:var(--text-primary); }
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+.progress { margin-top:.5rem; }
+.progress-bar { height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+.progress-bar-inner { height:100%; background:var(--accent); width:0%; transition:width .3s; }
+.progress-text { font-size:12px; color:var(--text-tertiary); margin-top:.25rem; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/">AI 知识库</a>
+  <span class="sep">/</span>
+  <span>上传文件</span>
+</nav>
+
+<div class="container">
+  <h1>添加知识文档</h1>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="upload">上传文件</div>
+    <div class="tab" data-tab="create">新建文档</div>
+  </div>
+
+  <div class="tab-content active" id="tab-upload">
+    <div class="card">
+      <div class="drop-zone" id="dropZone">
+        <div class="icon">📄</div>
+        <p>拖拽 .md 文件到此处，或点击选择</p>
+        <input type="file" id="fileInput" multiple accept=".md" style="display:none">
+      </div>
+      <div class="file-list" id="fileList"></div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-create">
+    <div class="card">
+      <div class="form-group">
+        <label for="createFilename">文件名（含 .md 后缀）</label>
+        <input type="text" id="createFilename" placeholder="例如: my-new-note.md">
+      </div>
+      <div class="form-group">
+        <label for="createCategory">分类目录（可选，留空则存入 raw/ 根目录）</label>
+        <input type="text" id="createCategory" placeholder="例如: avm_calib">
+      </div>
+      <div class="form-group">
+        <label for="createContent">内容（Markdown）</label>
+        <textarea id="createContent" placeholder="在此输入 Markdown 内容..."></textarea>
+      </div>
+      <button class="btn btn-primary" id="createBtn">保存并分析</button>
+      <div class="progress" id="createProgress" style="display:none">
+        <div class="progress-bar"><div class="progress-bar-inner" id="createProgressBar"></div></div>
+        <div class="progress-text" id="createProgressText"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="taskSection" style="display:none">
+    <h2>分析任务</h2>
+    <div id="taskList"></div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+var dropZone = document.getElementById('dropZone');
+var fileInput = document.getElementById('fileInput');
+var fileList = document.getElementById('fileList');
+
+dropZone.addEventListener('click', function() { fileInput.click(); });
+dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('drag-over'); });
+dropZone.addEventListener('drop', function(e) {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', function() { handleFiles(fileInput.files); });
+
+function handleFiles(files) {
+  var formData = new FormData();
+  for (var i = 0; i < files.length; i++) {
+    if (files[i].name.endsWith('.md')) {
+      formData.append('files', files[i]);
+      addFileItem(files[i].name, 'uploading');
+    }
+  }
+  if (!formData.has('files')) return;
+
+  var token = getToken();
+  fetch('/api/upload', {
+    method: 'POST',
+    headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+    body: formData
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success && data.task_id) {
+      updateFileItem(files[0].name, 'success', '已上传，分析中...');
+      addTask(data.task_id, files[0].name);
+    } else {
+      updateFileItem(files[0].name, 'error', data.message);
+    }
+  })
+  .catch(function(err) {
+    updateFileItem(files[0].name, 'error', '上传失败: ' + err.message);
+  });
+}
+
+function addFileItem(name, status) {
+  var div = document.createElement('div');
+  div.className = 'file-item';
+  div.id = 'file-' + name;
+  div.innerHTML = '<span>' + name + '</span><span class="status" id="status-' + name + '">' + status + '</span>';
+  fileList.appendChild(div);
+}
+
+function updateFileItem(name, status, text) {
+  var el = document.getElementById('status-' + name);
+  if (el) {
+    el.className = 'status ' + status;
+    el.textContent = text;
+  }
+}
+
+document.getElementById('createBtn').addEventListener('click', function() {
+  var filename = document.getElementById('createFilename').value.trim();
+  var category = document.getElementById('createCategory').value.trim();
+  var content = document.getElementById('createContent').value;
+
+  if (!filename || !content) {
+    alert('请填写文件名和内容');
+    return;
+  }
+
+  var progress = document.getElementById('createProgress');
+  var progressBar = document.getElementById('createProgressBar');
+  var progressText = document.getElementById('createProgressText');
+  progress.style.display = 'block';
+  progressBar.style.width = '20%';
+  progressText.textContent = '保存中...';
+
+  var token = getToken();
+  fetch('/api/raw-file/create', {
+    method: 'POST',
+    headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { 'Authorization': 'Bearer ' + token } : {}),
+    body: JSON.stringify({ filename: filename, content: content, category: category || null })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    progressBar.style.width = '50%';
+    progressText.textContent = '已保存，开始分析...';
+    if (data.success) {
+      addTask('pending', data.file_path);
+    } else {
+      progressText.textContent = '创建失败: ' + data.message;
+    }
+  })
+  .catch(function(err) {
+    progressText.textContent = '请求失败: ' + err.message;
+  });
+});
+
+var activeTasks = [];
+
+function addTask(taskId, filename) {
+  var section = document.getElementById('taskSection');
+  section.style.display = 'block';
+  var taskList = document.getElementById('taskList');
+
+  var div = document.createElement('div');
+  div.className = 'file-item';
+  div.id = 'task-' + taskId;
+  div.innerHTML = '<span>' + filename + '</span><span class="status processing" id="task-status-' + taskId + '">分析中...</span>';
+  taskList.appendChild(div);
+
+  if (taskId !== 'pending') {
+    activeTasks.push({ id: taskId, filename: filename, element: div });
+    pollTask(taskId);
+  }
+}
+
+function pollTask(taskId) {
+  var token = getToken();
+  fetch('/api/ingest/status/' + taskId, {
+    headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var statusEl = document.getElementById('task-status-' + taskId);
+    if (!statusEl) return;
+
+    if (data.status === 'completed') {
+      statusEl.className = 'status success';
+      statusEl.textContent = '完成: ' + (data.result && data.result.wiki_path ? data.result.wiki_path : '');
+      removeTask(taskId);
+    } else if (data.status === 'failed') {
+      statusEl.className = 'status error';
+      statusEl.textContent = '失败: ' + (data.error || '未知错误');
+      removeTask(taskId);
+    } else {
+      setTimeout(function() { pollTask(taskId); }, 3000);
+    }
+  })
+  .catch(function() {
+    setTimeout(function() { pollTask(taskId); }, 5000);
+  });
+}
+
+function removeTask(taskId) {
+  activeTasks = activeTasks.filter(function(t) { return t.id !== taskId; });
+}
+
+function getToken() {
+  var cookies = document.cookie.split(';');
+  for (var i = 0; i < cookies.length; i++) {
+    var c = cookies[i].trim();
+    if (c.startsWith('kb_token=')) {
+      return c.substring('kb_token='.length);
+    }
+  }
+  return localStorage.getItem('kb_token');
+}
+</script>
+</body>
+</html>
