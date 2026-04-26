@@ -198,12 +198,16 @@ class KBHandler(SimpleHTTPRequestHandler):
             self.serve_theme_css()
         elif path.startswith("/wiki/"):
             self.serve_wiki_raw(path[len("/wiki/"):])
+        elif path == "/api/auth/verify":
+            self.handle_verify()
         elif path == "/api/index":
             self.serve_api_index()
         elif path == "/api/wiki-path-map":
             self.serve_path_map()
         elif path == "/api/graph":
             self.serve_graph()
+        elif path == "/login" or path == "/login.html":
+            self.serve_login_page()
         elif path == "/graph" or path == "/graph.html":
             self.serve_graph_page()
         elif path == "/raw" or path == "/raw.html":
@@ -571,6 +575,103 @@ function loadFile(path, el) {
 </body>
 </html>"""
         return html
+
+    def do_POST(self):
+        """Handle POST requests — auth endpoints."""
+        path = self.path.split("?")[0]
+        if path.startswith("//"):
+            path = path[1:]
+
+        if path == "/api/auth/login":
+            self.handle_login()
+        else:
+            self.send_error(405, "Method not allowed")
+
+    def handle_login(self):
+        """POST /api/auth/login — authenticate user and return JWT."""
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body)
+        except (json.JSONDecodeError, ValueError):
+            return self._send_json({"success": False, "message": "无效的请求体"}, 400)
+
+        username = data.get("username", "").strip()
+        password = data.get("password", "")
+
+        if not username or not password:
+            return self._send_json({"success": False, "message": "请填写账号和密码"}, 400)
+
+        # Look up user by phone number (username field)
+        user = USERS.get(username)
+        if not user or not verify_password(password, user["password_hash"]):
+            return self._send_json({"success": False, "message": "账号或密码错误"}, 401)
+
+        token = generate_token(username)
+        return self._send_json({
+            "success": True,
+            "message": "登录成功",
+            "token": token,
+        })
+
+    def handle_verify(self):
+        """GET /api/auth/verify — validate current token."""
+        token = self._get_auth_token()
+        if not token:
+            return self._send_json({"valid": False, "message": "未提供认证令牌"}, 401)
+
+        payload = verify_token(token)
+        if not payload:
+            return self._send_json({"valid": False, "message": "令牌无效或已过期"}, 401)
+
+        return self._send_json({"valid": True, "user": payload.get("sub", "")})
+
+    def serve_login_page(self):
+        """GET /login — serve the login HTML page."""
+        login_path = PUBLIC_DIR / "login.html"
+        if not login_path.exists():
+            self.send_error(404, "login.html not found")
+            return
+        self._serve_file(login_path, "text/html; charset=utf-8")
+
+    def _get_auth_token(self):
+        """Extract Bearer token from Authorization header."""
+        auth_header = self.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            return auth_header[7:]
+        return None
+
+    def _require_auth(self):
+        """Check authentication. Returns True if valid, sends redirect/401 if not."""
+        token = self._get_auth_token()
+        if not token:
+            self._redirect_to_login()
+            return False
+        payload = verify_token(token)
+        if not payload:
+            self._redirect_to_login()
+            return False
+        return True
+
+    def _redirect_to_login(self):
+        """Redirect to login page for HTML requests, or return 401 for API requests."""
+        path = self.path.split("?")[0]
+        if path.startswith("/api/"):
+            self._send_json({"success": False, "message": "未提供认证令牌或令牌已过期"}, 401)
+        else:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+    def _send_json(self, data, status=200):
+        """Send a JSON response."""
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def log_message(self, format, *args):
         sys.stderr.write(f"[KB] {args[0]}\n")
