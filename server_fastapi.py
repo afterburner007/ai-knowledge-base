@@ -32,9 +32,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="AI Knowledge Base", lifespan=lifespan)
 
 # CORS (for local development)
+import os
+_cors_origins = os.environ.get("KB_CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,6 +59,7 @@ def main():
     parser = argparse.ArgumentParser(description="AI Knowledge Base FastAPI Server")
     parser.add_argument("--port", type=int, default=8080, help="Port to serve on")
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
+    parser.add_argument("--reload", action="store_true", help="Enable auto-reload (development only)")
     args = parser.parse_args()
 
     import uvicorn
@@ -64,7 +67,7 @@ def main():
         "server_fastapi:app",
         host=args.host,
         port=args.port,
-        reload=True,  # auto-reload during development
+        reload=args.reload,
     )
 
 

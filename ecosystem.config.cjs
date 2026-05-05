@@ -7,8 +7,9 @@ module.exports = {
     instances: 1,
     exec_mode: 'fork',
     env: {
-      NODE_ENV: 'production',
+      APP_ENV: 'production',
       PORT: 8080,
+      KB_CORS_ORIGINS: 'https://wiki.wudibyd.cloud',
     },
     error_file: '/var/log/ai-kb/error.log',
     out_file: '/var/log/ai-kb/out.log',
