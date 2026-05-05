@@ -18,7 +18,7 @@ TOKEN_EXPIRY = 24 * 3600  # 24 hours
 # User database — same as server.py
 USERS = {
     "18352869670": {
-        "password_hash": "sha256:db2fac630139bde79fb4de212a49ff8b:9f2d37aa9d6686e1f313535480dc8a0d050925cd507e044cb4743b81384d76f7",
+        "password_hash": "sha256:db2fac630139bde79fb4de212a49ff8b:ef4560d15d16d24224ef76d9a84c9887d1f2394013189790e142079a7d62d062",
     }
 }
 
