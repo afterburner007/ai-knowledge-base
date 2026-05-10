@@ -53,4 +53,5 @@ class RawFileCreateRequest(BaseModel):
 class RawFileCreateResponse(BaseModel):
     success: bool
     file_path: str
+    task_id: str
     message: str

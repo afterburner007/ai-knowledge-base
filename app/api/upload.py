@@ -132,6 +132,7 @@ async def create_raw_file(data: RawFileCreateRequest, background_tasks: Backgrou
     return RawFileCreateResponse(
         success=True,
         file_path=f"raw/{rel_path}",
+        task_id=task_id,
         message=f"已创建并开始分析: {rel_path}",
     )
 

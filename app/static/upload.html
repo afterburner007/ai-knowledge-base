@@ -199,7 +199,12 @@ document.getElementById('createBtn').addEventListener('click', function() {
   .then(function(data) {
     progressBar.style.width = '50%';
     progressText.textContent = '已保存，开始分析...';
-    if (data.success) {
+    if (data.success && data.task_id) {
+      progressBar.style.width = '100%';
+      progressText.textContent = '已保存，开始分析...';
+      addTask(data.task_id, data.file_path);
+    } else if (data.success) {
+      progressText.textContent = '已保存，开始分析...';
       addTask('pending', data.file_path);
     } else {
       progressText.textContent = '创建失败: ' + data.message;
